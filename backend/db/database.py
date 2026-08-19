@@ -34,7 +34,7 @@ DEFAULT_DATABASE_URL = "postgresql+psycopg2://sih2026:sih2026pass@localhost:5432
 DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+SessionLocal = sessionmaker(bind=engine)
 
 
 def init_db() -> None:
