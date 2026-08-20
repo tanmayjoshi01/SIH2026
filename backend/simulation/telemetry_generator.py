@@ -8,6 +8,14 @@ in sync with current status/metrics. A single failed tick (e.g. a
 transient DB connection issue) is logged and skipped - it never kills
 the loop.
 
+Day 2: every node is also scored every tick (not just nodes with an
+active fault) via services/anomaly_scoring_service.py, producing one
+`anomalies` row per (node, tick) in the same transaction as the
+telemetry writes above -- this is what gives Developer 2's UI/LLM a
+continuous anomaly_score/failure_probability stream instead of only a
+row at fault-injection time. A scoring failure for one node is caught
+inside score_node() itself and never aborts the tick.
+
 Standalone manual test:
     python backend/simulation/telemetry_generator.py
 Injects a bgp_flap fault on router-7 and prints rising
@@ -31,6 +39,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from db.database import SessionLocal, init_db
 from db.models import Node, TelemetryLog
+from services import anomaly_scoring_service
 from simulation.fault_injector import FaultInjector
 from simulation.topology_def import build_topology
 
@@ -128,8 +137,14 @@ class TelemetryGenerator:
         try:
             with self.session_factory() as session:
                 session.add_all(rows)
+                # Flush so this tick's freshly-written telemetry rows are
+                # visible to the scorer's SELECT-based feature window below.
+                session.flush()
                 for node_id in self.graph.nodes:
                     self._sync_node_row(session, node_id)
+                for node_id in self.graph.nodes:
+                    episode = self.injector.active_episodes.get(node_id)
+                    anomaly_scoring_service.score_node(session, node_id, episode.fault_id if episode else None)
                 session.commit()
         except SQLAlchemyError:
             logger.exception("Telemetry tick failed to write to the database; continuing")
