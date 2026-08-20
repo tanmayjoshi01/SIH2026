@@ -34,8 +34,8 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import settings
-from routers import audit, copilot, health, hitl, monitoring, predictions, simulation
-from services import simulation_service
+from routers import audit, copilot, health, hitl, incidents, monitoring, predictions, simulation
+from services import incident_manager, simulation_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("main")
@@ -43,6 +43,7 @@ logger = logging.getLogger("main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    incident_manager.register_metrics()  # extends GET /metrics regardless of whether the loop below runs
     if settings.run_telemetry_loop:
         try:
             from db.database import init_db
@@ -103,8 +104,12 @@ async def unhandled_exception_handler(request, exc: Exception):
 # Routers
 # --------------------------------------------------------------------------
 
-for module in (health, monitoring, simulation, copilot, predictions, audit, hitl):
+for module in (health, monitoring, simulation, copilot, predictions, audit, hitl, incidents):
     app.include_router(module.router, prefix=settings.api_prefix)
+
+# /ws/incidents lives at the root, not under settings.api_prefix, per the
+# Day 3 contract -- mounted separately from incidents.router above.
+app.include_router(incidents.ws_router)
 
 
 @app.get("/")

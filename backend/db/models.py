@@ -100,6 +100,28 @@ class Anomaly(Base):
     model_version: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
 
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    # Day 3: the persistent incident lifecycle built on top of Day 2's
+    # per-tick anomalies stream. Exactly one open/acknowledged row per
+    # node_id at a time (enforced by services/incident_manager.py, not a
+    # DB constraint, since "open" here means "not yet resolved" across
+    # two possible statuses). Anomaly rows in an incident's active window
+    # are found by time-range (node_id + detected_at between opened_at
+    # and closed_at-or-now), not a foreign key -- see incident_manager.py
+    # for why. Field names below are the Day 3 contract Developer 2's UI
+    # builds against; do not rename.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    node_id: Mapped[str] = mapped_column(String(64), ForeignKey("nodes.id"), nullable=False, index=True)
+    opened_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    closed_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open", index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="low")
+    peak_anomaly_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    root_cause_signal: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+
 class Recommendation(Base):
     __tablename__ = "recommendations"
 

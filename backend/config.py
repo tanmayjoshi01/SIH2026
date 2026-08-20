@@ -9,6 +9,8 @@ strip values surfaced by GET /api/health.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +42,23 @@ class Settings(BaseSettings):
     # Default page size for GET /api/telemetry when no explicit limit is given.
     telemetry_default_limit: int = 200
     telemetry_max_limit: int = 2000
+
+    # Day 3: incident lifecycle thresholds (services/incident_manager.py).
+    # An anomaly_score at/above this counts as "above threshold" for both
+    # the open-after-N-ticks and resolve-after-N-ticks gates, and doubles
+    # as the floor of the "medium" severity band.
+    incident_anomaly_threshold: float = 0.4
+    incident_high_severity_threshold: float = 0.7
+    incident_critical_severity_threshold: float = 0.85
+    # A single noisy tick must never open or resolve an incident -- these
+    # require N *consecutive* ticks on the wrong side of the threshold.
+    incident_open_after_n_ticks: int = 3
+    incident_resolve_after_n_ticks: int = 3
+
+    # Optional demo alerting webhook (services/alerting.py). Unset (the
+    # default) means no-op -- most demo runs won't set this.
+    alert_webhook_url: Optional[str] = None
+    alert_webhook_timeout_seconds: float = 2.0
 
 
 settings = Settings()
