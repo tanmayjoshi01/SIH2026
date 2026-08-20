@@ -11,10 +11,10 @@ same generator instance -- if the router injected into a different object
 than the one writing telemetry_logs, an injected fault would never reach
 the database the UI polls.
 
-reset() delegates to FaultInjector.reset() on the live generator's
-injector, which clears active episodes and snaps affected nodes back to
-baseline in place -- no rebuilding of the generator/topology/injector
-required.
+reset() delegates to TelemetryGenerator.reset(), which clears active
+fault episodes via FaultInjector.reset() and (Day 3) safely resolves any
+open incident on the affected nodes in the same DB transaction -- no
+rebuilding of the generator/topology/injector required.
 
 _lock also serializes every mutation of the shared NetworkX graph
 (inject, reset, and each background tick) against each other. Without
@@ -57,9 +57,9 @@ def inject(node_id: str, fault_type: str):
 
 
 def reset() -> None:
-    """Drops all active fault episodes and snaps affected nodes back to baseline."""
+    """Drops all active fault episodes, snaps affected nodes back to baseline, and resolves their open incidents."""
     with _lock:
-        get_generator().injector.reset()
+        get_generator().reset()
 
 
 def _run_loop() -> None:

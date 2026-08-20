@@ -63,6 +63,12 @@ class FaultInjector:
         seeds a fresh graph with -- cpu/memory come from BASELINES by node
         type, the rest are the fixed healthy-network defaults). Returns the
         list of node_ids that were reset.
+
+        Day 3: this module stays DB-agnostic on purpose (pure NetworkX
+        graph mutation, same as inject()/tick()). The returned node_id
+        list is what simulation/telemetry_generator.py's TelemetryGenerator.
+        reset() feeds to IncidentManager.resolve_nodes() to safely close
+        any open incident on these nodes -- no incident/DB logic lives here.
         """
         affected = list(self.active_episodes.keys())
         for node_id in affected:
