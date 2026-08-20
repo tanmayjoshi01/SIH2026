@@ -1,0 +1,240 @@
+[
+  {
+    "id": "bgp-1",
+    "question": "Why is router-7's BGP session flapping?",
+    "expected_runbook": "bgp_flap.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.85,
+      "failure_probability": 0.8,
+      "eta_minutes": 3.0,
+      "contributing_signals": ["bgp_flap_count +320%", "packet_loss +180%"],
+      "fault_type": "bgp_flap",
+      "status": "open"
+    }
+  },
+  {
+    "id": "bgp-2",
+    "question": "What is the root cause of repeated BGP adjacency transitions between two neighbors?",
+    "expected_runbook": "bgp_flap.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.78,
+      "failure_probability": 0.72,
+      "eta_minutes": 4.5,
+      "contributing_signals": ["bgp_flap_count +250%"],
+      "fault_type": "bgp_flap",
+      "status": "open"
+    }
+  },
+  {
+    "id": "bgp-3",
+    "question": "What is the recommended action when a BGP flap is confirmed still active?",
+    "expected_runbook": "bgp_flap.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.9,
+      "failure_probability": 0.85,
+      "eta_minutes": 2.0,
+      "contributing_signals": ["bgp_flap_count +400%"],
+      "fault_type": "bgp_flap",
+      "status": "open"
+    }
+  },
+  {
+    "id": "bgp-4",
+    "question": "How do I know a BGP flap episode has recovered?",
+    "expected_runbook": "bgp_flap.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.3,
+      "failure_probability": 0.2,
+      "eta_minutes": null,
+      "contributing_signals": [],
+      "fault_type": "bgp_flap",
+      "status": "resolved"
+    }
+  },
+  {
+    "id": "bgp-5",
+    "question": "Why does packet loss increase during a BGP flap episode?",
+    "expected_runbook": "bgp_flap.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.82,
+      "failure_probability": 0.75,
+      "eta_minutes": 3.5,
+      "contributing_signals": ["bgp_flap_count +300%", "packet_loss +150%", "latency_ms +90%"],
+      "fault_type": "bgp_flap",
+      "status": "open"
+    }
+  },
+  {
+    "id": "cpu-1",
+    "question": "Why is server-1's CPU utilization climbing steadily?",
+    "expected_runbook": "high_cpu.md",
+    "node_id": "server-1",
+    "anomaly": {
+      "anomaly_score": 0.72,
+      "failure_probability": 0.68,
+      "eta_minutes": 6.0,
+      "contributing_signals": ["cpu +180%", "memory +90%"],
+      "fault_type": "high_cpu",
+      "status": "open"
+    }
+  },
+  {
+    "id": "cpu-2",
+    "question": "What should I do about sustained high CPU on a compute node?",
+    "expected_runbook": "high_cpu.md",
+    "node_id": "server-1",
+    "anomaly": {
+      "anomaly_score": 0.8,
+      "failure_probability": 0.74,
+      "eta_minutes": 4.0,
+      "contributing_signals": ["cpu +220%"],
+      "fault_type": "high_cpu",
+      "status": "open"
+    }
+  },
+  {
+    "id": "cpu-3",
+    "question": "Is high CPU utilization treated as a critical fault in the taxonomy?",
+    "expected_runbook": "high_cpu.md",
+    "node_id": "server-1",
+    "anomaly": {
+      "anomaly_score": 0.6,
+      "failure_probability": 0.5,
+      "eta_minutes": 8.0,
+      "contributing_signals": ["cpu +150%"],
+      "fault_type": "high_cpu",
+      "status": "open"
+    }
+  },
+  {
+    "id": "cpu-4",
+    "question": "Why does memory utilization rise alongside CPU during this fault?",
+    "expected_runbook": "high_cpu.md",
+    "node_id": "server-1",
+    "anomaly": {
+      "anomaly_score": 0.7,
+      "failure_probability": 0.6,
+      "eta_minutes": 5.5,
+      "contributing_signals": ["cpu +190%", "memory +100%"],
+      "fault_type": "high_cpu",
+      "status": "open"
+    }
+  },
+  {
+    "id": "loss-1",
+    "question": "Why is there packet loss on the uplink to switch-4?",
+    "expected_runbook": "packet_loss.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.88,
+      "failure_probability": 0.82,
+      "eta_minutes": 2.5,
+      "contributing_signals": ["packet_loss +260%", "interface_errors +300%"],
+      "fault_type": "packet_loss",
+      "status": "open"
+    }
+  },
+  {
+    "id": "loss-2",
+    "question": "How can I tell packet loss from a BGP flap apart from packet loss from a physical link failure?",
+    "expected_runbook": "packet_loss.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.75,
+      "failure_probability": 0.7,
+      "eta_minutes": 4.0,
+      "contributing_signals": ["packet_loss +200%", "interface_errors +180%"],
+      "fault_type": "packet_loss",
+      "status": "open"
+    }
+  },
+  {
+    "id": "loss-3",
+    "question": "What is the recommended action for a degraded uplink with climbing interface errors?",
+    "expected_runbook": "packet_loss.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.91,
+      "failure_probability": 0.88,
+      "eta_minutes": 1.5,
+      "contributing_signals": ["packet_loss +310%", "interface_errors +350%"],
+      "fault_type": "packet_loss",
+      "status": "open"
+    }
+  },
+  {
+    "id": "loss-4",
+    "question": "What does a climbing interface error count indicate about the uplink?",
+    "expected_runbook": "packet_loss.md",
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.8,
+      "failure_probability": 0.76,
+      "eta_minutes": 3.0,
+      "contributing_signals": ["interface_errors +280%"],
+      "fault_type": "packet_loss",
+      "status": "open"
+    }
+  },
+  {
+    "id": "gen-1",
+    "question": "What signals should I check together when an anomaly doesn't clearly match one fault type?",
+    "expected_runbook": "general_troubleshooting.md",
+    "node_id": null,
+    "anomaly": {
+      "anomaly_score": 0.55,
+      "failure_probability": 0.4,
+      "eta_minutes": 10.0,
+      "contributing_signals": ["cpu +60%", "packet_loss +55%"],
+      "fault_type": "healthy",
+      "status": "open"
+    }
+  },
+  {
+    "id": "gen-2",
+    "question": "What is the escalation policy for critical faults versus non-critical faults?",
+    "expected_runbook": "general_troubleshooting.md",
+    "node_id": null,
+    "anomaly": {
+      "anomaly_score": 0.4,
+      "failure_probability": 0.3,
+      "eta_minutes": null,
+      "contributing_signals": [],
+      "fault_type": "healthy",
+      "status": "open"
+    }
+  },
+  {
+    "id": "gen-3",
+    "question": "Is human approval always required before a recommended action is executed?",
+    "expected_runbook": "general_troubleshooting.md",
+    "node_id": null,
+    "anomaly": {
+      "anomaly_score": 0.35,
+      "failure_probability": 0.25,
+      "eta_minutes": null,
+      "contributing_signals": [],
+      "fault_type": "healthy",
+      "status": "open"
+    }
+  },
+  {
+    "id": "gen-4",
+    "question": "What should happen if a recommended action doesn't clear the fault?",
+    "expected_runbook": "general_troubleshooting.md",
+    "node_id": null,
+    "anomaly": {
+      "anomaly_score": 0.5,
+      "failure_probability": 0.4,
+      "eta_minutes": 9.0,
+      "contributing_signals": ["cpu +70%"],
+      "fault_type": "healthy",
+      "status": "open"
+    }
+  }
+]

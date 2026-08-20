@@ -1,0 +1,209 @@
+[
+  {
+    "id": "bgp-1",
+    "question": "Why is router-7's BGP session flapping?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "bgp_flap.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 56.1
+  },
+  {
+    "id": "bgp-2",
+    "question": "What is the root cause of repeated BGP adjacency transitions between two neighbors?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "bgp_flap.md"
+    ],
+    "mode": "llm",
+    "grounded": true,
+    "grounding_score": 0.667,
+    "elapsed_seconds": 47.0
+  },
+  {
+    "id": "bgp-3",
+    "question": "What is the recommended action when a BGP flap is confirmed still active?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "bgp_flap.md"
+    ],
+    "mode": "llm",
+    "grounded": false,
+    "grounding_score": 0.25,
+    "elapsed_seconds": 44.1
+  },
+  {
+    "id": "bgp-4",
+    "question": "How do I know a BGP flap episode has recovered?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "bgp_flap.md"
+    ],
+    "mode": "llm",
+    "grounded": false,
+    "grounding_score": 0.25,
+    "elapsed_seconds": 41.1
+  },
+  {
+    "id": "bgp-5",
+    "question": "Why does packet loss increase during a BGP flap episode?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "bgp_flap.md",
+      "packet_loss.md"
+    ],
+    "mode": "llm",
+    "grounded": true,
+    "grounding_score": 0.667,
+    "elapsed_seconds": 43.2
+  },
+  {
+    "id": "cpu-1",
+    "question": "Why is server-1's CPU utilization climbing steadily?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "high_cpu.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 50.4
+  },
+  {
+    "id": "cpu-2",
+    "question": "What should I do about sustained high CPU on a compute node?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "high_cpu.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 50.0
+  },
+  {
+    "id": "cpu-3",
+    "question": "Is high CPU utilization treated as a critical fault in the taxonomy?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "high_cpu.md"
+    ],
+    "mode": "llm",
+    "grounded": false,
+    "grounding_score": 0.25,
+    "elapsed_seconds": 46.8
+  },
+  {
+    "id": "cpu-4",
+    "question": "Why does memory utilization rise alongside CPU during this fault?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "high_cpu.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 50.0
+  },
+  {
+    "id": "loss-1",
+    "question": "Why is there packet loss on the uplink to switch-4?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "packet_loss.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 50.0
+  },
+  {
+    "id": "loss-2",
+    "question": "How can I tell packet loss from a BGP flap apart from packet loss from a physical link failure?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "bgp_flap.md",
+      "packet_loss.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 50.0
+  },
+  {
+    "id": "loss-3",
+    "question": "What is the recommended action for a degraded uplink with climbing interface errors?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "packet_loss.md"
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "elapsed_seconds": 50.0
+  },
+  {
+    "id": "loss-4",
+    "question": "What does a climbing interface error count indicate about the uplink?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "packet_loss.md"
+    ],
+    "mode": "llm",
+    "grounded": true,
+    "grounding_score": 0.667,
+    "elapsed_seconds": 41.5
+  },
+  {
+    "id": "gen-1",
+    "question": "What signals should I check together when an anomaly doesn't clearly match one fault type?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "general_troubleshooting.md"
+    ],
+    "mode": "llm",
+    "grounded": true,
+    "grounding_score": 0.5,
+    "elapsed_seconds": 44.8
+  },
+  {
+    "id": "gen-2",
+    "question": "What is the escalation policy for critical faults versus non-critical faults?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "general_troubleshooting.md",
+      "high_cpu.md"
+    ],
+    "mode": "llm",
+    "grounded": false,
+    "grounding_score": 0.25,
+    "elapsed_seconds": 43.0
+  },
+  {
+    "id": "gen-3",
+    "question": "Is human approval always required before a recommended action is executed?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "general_troubleshooting.md"
+    ],
+    "mode": "llm",
+    "grounded": false,
+    "grounding_score": 0.25,
+    "elapsed_seconds": 40.1
+  },
+  {
+    "id": "gen-4",
+    "question": "What should happen if a recommended action doesn't clear the fault?",
+    "retrieval_hit": true,
+    "retrieved_files": [
+      "general_troubleshooting.md"
+    ],
+    "mode": "llm",
+    "grounded": true,
+    "grounding_score": 0.455,
+    "elapsed_seconds": 46.6
+  }
+]
