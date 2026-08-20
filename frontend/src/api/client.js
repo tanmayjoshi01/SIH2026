@@ -73,9 +73,17 @@ export const resetSimulation = () => post('/api/simulation/reset')
 /* Day 1 stubs - real implementations land on Day 2/3 */
 export const getAnomalies = () => request('/api/anomalies')
 export const getPredictions = () => request('/api/predictions')
-export const askCopilot = (question) => post('/api/chat', { question })
+export const askCopilot = (question, sessionId) => post('/api/chat', { question, session_id: sessionId })
 export const approveRecommendation = (payload) => post('/api/hitl/approve', payload)
 export const rejectRecommendation = (payload) => post('/api/hitl/reject', payload)
 export const getAuditLogs = () => request('/api/audit-logs')
+
+/* Day 3: incidents (Developer 1's lifecycle -- read/acknowledge only) */
+export const getIncidents = (params) => request(`/api/incidents${query(params)}`)
+export const acknowledgeIncident = (incidentId) => post(`/api/incidents/${incidentId}/acknowledge`)
+
+/* Day 3: WebSocket URL for live incident push -- ws_router is mounted at
+   the root in backend/main.py, not under /api. */
+export const INCIDENTS_WS_URL = `${BASE_URL.replace(/^http/, 'ws')}/ws/incidents`
 
 export { BASE_URL }

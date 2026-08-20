@@ -38,17 +38,20 @@ export default function MessageBubble({ message }) {
 
   const answer = message.answer
   const isFallback = answer.mode === 'fallback'
+  // NOC-tool reading order: AI analysis -> active incident -> root cause ->
+  // recommended actions -> evidence -> confidence. Older backends without
+  // the Day 3 fields (recommended_actions/incident_id/status/severity)
+  // still render correctly -- everything below degrades gracefully.
+  const actions = answer.recommended_actions?.length ? answer.recommended_actions : null
+  const hasIncident = answer.incident_id != null
 
   return (
     <div className="flex items-start gap-2 self-start">
       <Bot size={16} className="mt-1.5 shrink-0 text-violet-400" aria-hidden="true" />
       <div className="max-w-[92%] space-y-2.5 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <ConfidenceBadge value={answer.confidence} />
-          <AlertBadge
-            level={answer.risk >= 0.7 ? 'critical' : answer.risk >= 0.4 ? 'warning' : 'low'}
-            label={`risk ${Math.round(answer.risk * 100)}%`}
-          />
+          {hasIncident && <AlertBadge level={answer.severity} label={`incident #${answer.incident_id} · ${answer.severity}`} />}
+          {answer.status && <AlertBadge level={answer.status === 'acknowledged' ? 'medium' : hasIncident ? 'critical' : 'healthy'} label={answer.status} />}
           {answer.requires_human_approval && (
             <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-semibold text-violet-300 ring-1 ring-violet-500/40">
               <ShieldQuestion size={12} aria-hidden="true" /> approval required
@@ -61,15 +64,24 @@ export default function MessageBubble({ message }) {
           )}
         </div>
 
-        <Field label="Summary">{answer.summary}</Field>
+        <Field label="AI analysis">{answer.summary}</Field>
         <Field label="Root cause">{answer.root_cause}</Field>
         <Field label="Affected component">
-          <span className="font-mono text-sky-300">{answer.affected_component}</span>
+          <span className="font-mono text-sky-300">{answer.affected_node ?? answer.affected_component}</span>
         </Field>
-        <Field label="Recommended action">
-          <code className="rounded bg-slate-950 px-2 py-1 font-mono text-xs text-amber-300 ring-1 ring-slate-700">
-            {answer.recommended_action}
-          </code>
+
+        <Field label="Recommended actions">
+          {actions ? (
+            <ol className="list-decimal space-y-1 pl-4 text-slate-300">
+              {actions.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          ) : (
+            <code className="rounded bg-slate-950 px-2 py-1 font-mono text-xs text-amber-300 ring-1 ring-slate-700">
+              {answer.recommended_action}
+            </code>
+          )}
         </Field>
 
         {answer.evidence.length > 0 && (
@@ -79,6 +91,14 @@ export default function MessageBubble({ message }) {
             ))}
           </div>
         )}
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-800 pt-2">
+          <ConfidenceBadge value={answer.confidence} />
+          <AlertBadge
+            level={answer.risk >= 0.7 ? 'critical' : answer.risk >= 0.4 ? 'warning' : 'low'}
+            label={`risk ${Math.round(answer.risk * 100)}%`}
+          />
+        </div>
       </div>
     </div>
   )

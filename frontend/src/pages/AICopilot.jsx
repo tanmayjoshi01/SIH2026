@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Bot, Send } from 'lucide-react'
 import { approveRecommendation, askCopilot, rejectRecommendation } from '../api/client'
 import ChatWindow from '../components/copilot/ChatWindow'
 import RetrievedSourcesPanel from '../components/copilot/RetrievedSourcesPanel'
+import IncidentContextPanel from '../components/copilot/IncidentContextPanel'
 
 const SUGGESTIONS = [
   'Why is router-7 at risk?',
@@ -15,6 +16,10 @@ export default function AICopilot() {
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
   const [decision, setDecision] = useState(null)
+  // One id per page load -- backend/routers/copilot.py keys its bounded,
+  // in-memory conversation history (last 4 turns) off this, so follow-up
+  // questions like "what should I do?" resolve against the same node.
+  const sessionId = useRef(`copilot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
 
   const ask = async (text) => {
     const trimmed = text.trim()
@@ -23,7 +28,7 @@ export default function AICopilot() {
     setDecision(null)
     setMessages((prev) => [...prev, { role: 'user', text: trimmed, id: `u-${Date.now()}` }])
     try {
-      const answer = await askCopilot(trimmed)
+      const answer = await askCopilot(trimmed, sessionId.current)
       setMessages((prev) => [...prev, { role: 'assistant', answer, id: `a-${Date.now()}` }])
     } catch (err) {
       setMessages((prev) => [...prev, { role: 'assistant', error: `${err.code} - ${err.message}`, id: `e-${Date.now()}` }])
@@ -58,6 +63,8 @@ export default function AICopilot() {
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
+          {latestAnswer?.affected_node && <IncidentContextPanel nodeId={latestAnswer.affected_node} />}
+
           <ChatWindow
             messages={messages}
             busy={busy}
