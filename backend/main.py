@@ -27,9 +27,10 @@ _BACKEND_ROOT = Path(__file__).resolve().parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import settings
@@ -109,3 +110,11 @@ for module in (health, monitoring, simulation, copilot, predictions, audit, hitl
 @app.get("/")
 def root() -> dict:
     return {"name": settings.app_name, "docs": "/docs", "api_prefix": settings.api_prefix}
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    # Root path, not under settings.api_prefix -- backend/prometheus.yml
+    # scrapes host.docker.internal:8000/metrics with no metrics_path
+    # override, so Prometheus expects it exactly here.
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
