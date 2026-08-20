@@ -19,7 +19,7 @@ import networkx as nx
 
 from simulation.fault_profiles import FaultProfile, build_profile
 from simulation.log_templates import classify_band, render_threshold_line
-from simulation.topology_def import get_neighbor
+from simulation.topology_def import BASELINES, get_neighbor
 
 
 @dataclass
@@ -55,6 +55,28 @@ class FaultInjector:
     def __init__(self, graph: nx.Graph):
         self.graph = graph
         self.active_episodes: Dict[str, FaultEpisode] = {}
+
+    def reset(self) -> List[str]:
+        """
+        Clears every active fault episode and immediately snaps affected
+        nodes' telemetry back to baseline (the same values build_topology()
+        seeds a fresh graph with -- cpu/memory come from BASELINES by node
+        type, the rest are the fixed healthy-network defaults). Returns the
+        list of node_ids that were reset.
+        """
+        affected = list(self.active_episodes.keys())
+        for node_id in affected:
+            node = self.graph.nodes[node_id]
+            baseline = BASELINES.get(node.get("type"), {})
+            node["cpu"] = baseline.get("cpu", node.get("cpu", 0.0))
+            node["memory"] = baseline.get("memory", node.get("memory", 0.0))
+            node["packet_loss"] = 0.2
+            node["latency_ms"] = 8.0
+            node["interface_errors"] = 0
+            node["bgp_flap_count"] = 0
+            node["status"] = "healthy"
+        self.active_episodes.clear()
+        return affected
 
     def inject(self, node_id: str, fault_id: str, now: Optional[datetime] = None) -> FaultEpisode:
         if node_id not in self.graph.nodes:

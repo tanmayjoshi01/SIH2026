@@ -90,6 +90,15 @@ class Anomaly(Base):
     detected_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
 
+    # Day 2: populated by services/anomaly_scoring_service.py on the same
+    # row as the detection fields above -- one row per (node, scoring
+    # tick), not a separate table Developer 2's routers would need to join.
+    anomaly_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    failure_probability: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    eta_minutes: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    contributing_signals: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    model_version: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
 
 class Recommendation(Base):
     __tablename__ = "recommendations"
