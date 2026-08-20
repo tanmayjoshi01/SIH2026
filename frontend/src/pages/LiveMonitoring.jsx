@@ -5,6 +5,7 @@ import TelemetryChart from '../components/monitoring/TelemetryChart'
 import AnomalyFeed from '../components/monitoring/AnomalyFeed'
 import AIStatusSummary from '../components/monitoring/AIStatusSummary'
 import HITLControlPanel from '../components/monitoring/HITLControlPanel'
+import IncidentFeed from '../components/monitoring/IncidentFeed'
 
 const POLL_MS = 2500
 const FEED_LIMIT = 150
@@ -108,6 +109,7 @@ export default function LiveMonitoring() {
           <HITLControlPanel nodes={nodes} onAction={load} />
         </div>
         <div className="space-y-4">
+          <IncidentFeed />
           <AnomalyFeed rows={feed} error={error} degradedNodeIds={degradedNodeIds} lastUpdated={lastUpdated} />
           <AIStatusSummary />
         </div>
