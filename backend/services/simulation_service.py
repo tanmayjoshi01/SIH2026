@@ -11,11 +11,19 @@ same generator instance -- if the router injected into a different object
 than the one writing telemetry_logs, an injected fault would never reach
 the database the UI polls.
 
-reset() is implemented by constructing a fresh TelemetryGenerator, which
-re-runs Developer 1's own build_topology() + FaultInjector() setup. The
-simulation package does not currently expose a reset entry point of its
-own; rebuilding via its constructor avoids duplicating any ramp,
-topology, or telemetry logic here.
+reset() delegates to FaultInjector.reset() on the live generator's
+injector, which clears active episodes and snaps affected nodes back to
+baseline in place -- no rebuilding of the generator/topology/injector
+required.
+
+_lock also serializes every mutation of the shared NetworkX graph
+(inject, reset, and each background tick) against each other. Without
+this, a reset() running on the FastAPI request thread could race the
+background tick loop mid-tick -- the tick's in-flight fault-ramp write
+for a node could land after reset()'s baseline write, leaving the node
+briefly degraded again until the next tick self-corrects. It's an RLock
+because get_generator() (which inject/reset/the loop all call first)
+also acquires it, and a plain Lock would deadlock on that reentry.
 """
 
 from __future__ import annotations
@@ -27,7 +35,7 @@ from simulation.telemetry_generator import TICK_SECONDS, TelemetryGenerator
 
 logger = logging.getLogger("simulation_service")
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 _generator: TelemetryGenerator | None = None
 _loop_thread: threading.Thread | None = None
 _stop_event = threading.Event()
@@ -44,21 +52,22 @@ def get_generator() -> TelemetryGenerator:
 
 def inject(node_id: str, fault_type: str):
     """Thin pass-through to Developer 1's TelemetryGenerator.inject_fault()."""
-    return get_generator().inject_fault(node_id, fault_type)
+    with _lock:
+        return get_generator().inject_fault(node_id, fault_type)
 
 
 def reset() -> None:
-    """Drops all active fault episodes by rebuilding Developer 1's generator."""
-    global _generator
+    """Drops all active fault episodes and snaps affected nodes back to baseline."""
     with _lock:
-        _generator = TelemetryGenerator()
+        get_generator().injector.reset()
 
 
 def _run_loop() -> None:
     logger.info("Telemetry tick loop started (tick=%ss)", TICK_SECONDS)
     while not _stop_event.is_set():
         try:
-            get_generator().tick()
+            with _lock:
+                get_generator().tick()
         except Exception:
             logger.exception("Telemetry tick failed; continuing")
         _stop_event.wait(TICK_SECONDS)
