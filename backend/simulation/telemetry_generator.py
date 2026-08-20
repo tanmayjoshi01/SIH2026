@@ -16,6 +16,14 @@ continuous anomaly_score/failure_probability stream instead of only a
 row at fault-injection time. A scoring failure for one node is caught
 inside score_node() itself and never aborts the tick.
 
+Day 3: each freshly-scored (not yet committed) anomaly row is also fed
+to self.incident_manager, which opens/updates/resolves that node's
+`incidents` row in the same transaction -- see
+services/incident_manager.py for the consecutive-tick-gated lifecycle.
+Pending WebSocket events it returns are only broadcast after commit()
+succeeds, so a client reacting to a push always finds the row already
+persisted.
+
 Standalone manual test:
     python backend/simulation/telemetry_generator.py
 Injects a bgp_flap fault on router-7 and prints rising
@@ -39,7 +47,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from db.database import SessionLocal, init_db
 from db.models import Node, TelemetryLog
-from services import anomaly_scoring_service
+from services import anomaly_scoring_service, incident_manager
+from services.incident_manager import IncidentManager
 from simulation.fault_injector import FaultInjector
 from simulation.topology_def import build_topology
 
@@ -80,10 +89,37 @@ class TelemetryGenerator:
     def __init__(self, session_factory=SessionLocal):
         self.graph = build_topology()
         self.injector = FaultInjector(self.graph)
+        self.incident_manager = IncidentManager()
         self.session_factory = session_factory
 
     def inject_fault(self, node_id: str, fault_id: str):
         return self.injector.inject(node_id, fault_id)
+
+    def reset(self) -> list[str]:
+        """
+        Resets fault episodes back to baseline and safely resolves/closes
+        every currently open/acknowledged incident, in one DB transaction.
+        This is deliberately not scoped to injector.reset()'s affected-
+        node list: a fault episode can finish its ramp and self-clear
+        from active_episodes (FaultInjector.tick()) before its incident
+        has decayed back below threshold, and this being a full-graph
+        reset (there is no per-node reset endpoint) means every incident
+        should close, not just ones on nodes still mid-episode. Callers
+        (services/simulation_service.py) already hold the RLock that
+        serializes this against the tick loop, so no new lock is
+        introduced here.
+        """
+        affected = self.injector.reset()
+        events: list[dict] = []
+        try:
+            with self.session_factory() as session:
+                events = self.incident_manager.resolve_all(session)
+                session.commit()
+        except SQLAlchemyError:
+            logger.exception("Failed to resolve open incidents during reset; continuing")
+        for event in events:
+            incident_manager.broadcast(event)
+        return affected
 
     def _make_log_row(self, node_id: str, metric_name: str, value: float, now: datetime, log_line=None) -> TelemetryLog:
         return TelemetryLog(
@@ -134,6 +170,7 @@ class TelemetryGenerator:
         for node_id in completed:
             logger.info("Fault episode on %s resolved", node_id)
 
+        pending_incident_events: list[dict] = []
         try:
             with self.session_factory() as session:
                 session.add_all(rows)
@@ -144,10 +181,20 @@ class TelemetryGenerator:
                     self._sync_node_row(session, node_id)
                 for node_id in self.graph.nodes:
                     episode = self.injector.active_episodes.get(node_id)
-                    anomaly_scoring_service.score_node(session, node_id, episode.fault_id if episode else None)
+                    anomaly = anomaly_scoring_service.score_node(session, node_id, episode.fault_id if episode else None)
+                    if anomaly is not None:
+                        event = self.incident_manager.process_tick(session, node_id, anomaly)
+                        if event is not None:
+                            pending_incident_events.append(event)
                 session.commit()
         except SQLAlchemyError:
             logger.exception("Telemetry tick failed to write to the database; continuing")
+            pending_incident_events = []
+
+        # Broadcast only after commit succeeds, so a /ws/incidents client
+        # reacting to an event always finds the row already persisted.
+        for event in pending_incident_events:
+            incident_manager.broadcast(event)
 
         return rows
 
