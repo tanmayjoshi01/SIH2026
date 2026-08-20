@@ -1,36 +1,108 @@
 """
 routers/predictions.py
 
-STUB (Day 1). Fixed anomaly and prediction payloads in the shapes the
-Day 2 scikit-learn detector/forecaster will emit. No model is loaded and
-no detection runs here.
+Real queries over Developer 1's anomalies table (Day 2 scoring columns:
+anomaly_score, failure_probability, eta_minutes). One row per (node,
+scoring tick) is written every ~2s by the telemetry loop, so "latest row
+per node_id" is a node's current reading for both endpoints below.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
+
+from db.database import SessionLocal
+from db.models import Anomaly
 
 router = APIRouter(tags=["predictions"])
 
+# Below this, a node's latest reading isn't worth surfacing as a
+# "detected anomaly" / forecast row -- it's just baseline jitter.
+ANOMALY_SCORE_FLOOR = 0.4
+FAILURE_PROBABILITY_FLOOR = 0.2
 
-def _stamp(seconds_ago: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat()
+
+class AnomalyOut(BaseModel):
+    id: int
+    timestamp: str
+    node_id: str
+    anomaly_score: float
+    severity: str
 
 
-@router.get("/anomalies")
-def get_anomalies() -> list[dict]:
+class PredictionOut(BaseModel):
+    id: int
+    node_id: str
+    failure_probability: float
+    eta_minutes: Optional[float]
+
+
+def _severity(score: float) -> str:
+    if score >= 0.7:
+        return "high"
+    if score >= ANOMALY_SCORE_FLOOR:
+        return "medium"
+    return "low"
+
+
+def _db_unavailable(exc: SQLAlchemyError) -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail={"error": f"Database unavailable: {exc.__class__.__name__}", "code": "DB_UNAVAILABLE"},
+    )
+
+
+def _latest_per_node(session) -> list[Anomaly]:
+    """One row per node_id: its highest-id (== most recent) anomalies row."""
+    latest_ids = select(func.max(Anomaly.id)).group_by(Anomaly.node_id).scalar_subquery()
+    return session.scalars(select(Anomaly).where(Anomaly.id.in_(latest_ids))).all()
+
+
+@router.get("/anomalies", response_model=list[AnomalyOut])
+def get_anomalies() -> list[AnomalyOut]:
+    try:
+        with SessionLocal() as session:
+            rows = _latest_per_node(session)
+    except SQLAlchemyError as exc:
+        raise _db_unavailable(exc) from exc
+
+    surfaced = [row for row in rows if row.status == "open" or (row.anomaly_score or 0.0) >= ANOMALY_SCORE_FLOOR]
+    surfaced.sort(key=lambda row: row.anomaly_score or 0.0, reverse=True)
+
     return [
-        {"id": 1, "timestamp": _stamp(45), "node_id": "router-7", "anomaly_score": 0.87, "severity": "high"},
-        {"id": 2, "timestamp": _stamp(120), "node_id": "switch-3", "anomaly_score": 0.54, "severity": "medium"},
-        {"id": 3, "timestamp": _stamp(310), "node_id": "gs-1", "anomaly_score": 0.21, "severity": "low"},
+        AnomalyOut(
+            id=row.id,
+            timestamp=row.detected_at.isoformat(),
+            node_id=row.node_id,
+            anomaly_score=row.anomaly_score or 0.0,
+            severity=_severity(row.anomaly_score or 0.0),
+        )
+        for row in surfaced
     ]
 
 
-@router.get("/predictions")
-def get_predictions() -> list[dict]:
+@router.get("/predictions", response_model=list[PredictionOut])
+def get_predictions() -> list[PredictionOut]:
+    try:
+        with SessionLocal() as session:
+            rows = _latest_per_node(session)
+    except SQLAlchemyError as exc:
+        raise _db_unavailable(exc) from exc
+
+    surfaced = [row for row in rows if (row.failure_probability or 0.0) >= FAILURE_PROBABILITY_FLOOR]
+    surfaced.sort(key=lambda row: row.failure_probability or 0.0, reverse=True)
+
     return [
-        {"id": 1, "node_id": "router-7", "failure_probability": 0.74, "eta_minutes": 12},
-        {"id": 2, "node_id": "switch-3", "failure_probability": 0.38, "eta_minutes": 47},
+        PredictionOut(
+            id=row.id,
+            node_id=row.node_id,
+            failure_probability=row.failure_probability or 0.0,
+            eta_minutes=row.eta_minutes,
+        )
+        for row in surfaced
     ]
