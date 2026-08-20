@@ -27,9 +27,13 @@ logger = logging.getLogger("llm_service")
 
 OLLAMA_URL = "http://127.0.0.1:11434"
 GENERATE_MODEL = "gemma3:4b"
-REQUEST_TIMEOUT_SECONDS = 45
+# Measured ~6 tok/s on this CPU-only deployment -- 220 tokens is enough
+# headroom for the 6-key JSON schema even with rich evidence, and keeps
+# worst-case generation time (num_predict tokens / 6 tok/s) under the
+# request timeout instead of racing it.
+REQUEST_TIMEOUT_SECONDS = 50
 KEEP_ALIVE = "30m"
-NUM_PREDICT = 350
+NUM_PREDICT = 220
 TEMPERATURE = 0.1
 
 REQUIRED_KEYS = ("summary", "root_cause", "risk", "affected_component", "recommended_action", "confidence")

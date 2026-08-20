@@ -53,10 +53,28 @@ def _anomaly_line(anomaly: Optional[dict]) -> str:
     )
 
 
+# Retrieved chunks are full runbook sections (can run 1000+ chars each) --
+# fine for the evidence panel in the UI, but 3 of them verbatim triples
+# gemma3:4b's prompt size and pushed measured warm latency from ~20s to
+# 60s+ on this CPU-only deployment. The LLM only needs enough of each
+# chunk to ground its answer; the frontend still gets the untruncated
+# excerpt via the evidence list built separately in routers/copilot.py.
+EXCERPT_CHAR_BUDGET = 280
+
+
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0] + "..."
+
+
 def _evidence_block(chunks: list[dict]) -> str:
     if not chunks:
         return "No runbook evidence retrieved above the relevance threshold."
-    lines = [f"[{i}] {c['runbook_file']} / {c['section_title']}: {c['excerpt']}" for i, c in enumerate(chunks, start=1)]
+    lines = [
+        f"[{i}] {c['runbook_file']} / {c['section_title']}: {_truncate(c['excerpt'], EXCERPT_CHAR_BUDGET)}"
+        for i, c in enumerate(chunks, start=1)
+    ]
     return "\n".join(lines)
 
 
