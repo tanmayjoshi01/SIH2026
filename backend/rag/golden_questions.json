@@ -236,5 +236,35 @@
       "fault_type": "healthy",
       "status": "open"
     }
+  },
+  {
+    "id": "oos-1",
+    "question": "What is the current outdoor air temperature at the ground station?",
+    "expected_runbook": null,
+    "out_of_scope": true,
+    "node_id": "gs-1",
+    "anomaly": {
+      "anomaly_score": 0.05,
+      "failure_probability": 0.02,
+      "eta_minutes": null,
+      "contributing_signals": [],
+      "fault_type": "healthy",
+      "status": "open"
+    }
+  },
+  {
+    "id": "oos-2",
+    "question": "How do I reset the administrator password on router-7?",
+    "expected_runbook": null,
+    "out_of_scope": true,
+    "node_id": "router-7",
+    "anomaly": {
+      "anomaly_score": 0.05,
+      "failure_probability": 0.02,
+      "eta_minutes": null,
+      "contributing_signals": [],
+      "fault_type": "healthy",
+      "status": "open"
+    }
   }
 ]
