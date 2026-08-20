@@ -15,11 +15,26 @@ loop running concurrently): the Day 2 prompt shape (3 chunks @ 280-char
 budget, no incident/history) already measured ~489 tokens / 1956 chars and
 took the full 50s request timeout on a single call before generate_json()
 gave up -- prompt evaluation throughput on this CPU is the bottleneck, not
-generation. EXCERPT_CHAR_BUDGET is trimmed further here (280 -> 220) and
-callers pass at most 2 chunks into build_prompt (the UI evidence panel
-still gets all retrieved chunks separately) specifically to make room for
-the incident line and history block below without growing the prompt
-past what Day 2 was already sending.
+generation.
+
+Day 4 grounding-fix finding (backend/rag/eval_harness.py, read the literal
+failing question/chunk/answer triples, not just the pass rate): the eval
+harness's 4 real LLM-mode grounding failures all shared the same shape --
+when telemetry_snapshot or incident was None, the OLD prompt stated that
+plainly ("no live telemetry available for this node" / "no active incident
+is open for this node") as its own sentence, and gemma3:4b would echo that
+sentence verbatim into summary/root_cause instead of composing an answer
+from the retrieved evidence -- even when the evidence plainly contained
+the answer (confirmed: bgp-3's correct recommended_action="restart_bgp_
+session" was extracted into that field, but summary/root_cause were still
+just the telemetry non-answer). The fix below is to omit those lines
+entirely when there's nothing to say, rather than stating an absence the
+model then treats as the headline. Two more failures (gen-2, gen-3) traced
+to the answer sitting past this module's truncation point inside a
+multi-policy Recovery Procedure chunk -- fixed at the source instead, by
+rag/ingest.py now splitting a list-structured section into one chunk per
+step/bullet, so the specific policy a question asks about is directly
+retrievable rather than needing a much larger per-chunk char budget here.
 """
 
 from __future__ import annotations
@@ -28,24 +43,28 @@ from typing import Optional
 
 SYSTEM_PREAMBLE = (
     "You are a NOC copilot operating fully offline inside an air-gapped network. "
-    "Answer ONLY using the evidence below -- never invent facts, log lines, or "
-    "runbook content that isn't given to you. Respond with strict minified JSON "
-    "only, no markdown fences, no commentary, matching exactly these keys: "
-    "summary (string), root_cause (string), risk (number 0-1), affected_component "
-    "(string), recommended_action (string), confidence (number 0-1). If the "
-    "evidence below does not support a fault-specific answer, or the node shows "
-    "no active anomaly, say so plainly in summary, set risk near the given "
-    "anomaly_score (or 0 if none), and lower confidence accordingly rather than "
-    "inventing a cause. If an active incident is given below, use its status, "
-    "severity, and score fields to answer questions about how long it has been "
-    "open, whether it has been acknowledged, and whether it is improving -- "
-    "never invent an incident that isn't given to you."
+    "Answer ONLY using the Evidence section below -- never invent facts, log lines, "
+    "or procedures not present there. A missing telemetry snapshot or missing active "
+    "incident is NOT a reason to ignore the Evidence -- use it to answer procedural "
+    "or policy questions regardless of what telemetry/incident data is available. "
+    "Only treat evidence as insufficient if the Evidence section itself does not "
+    "address the question asked; in that case, or if the node shows no active "
+    "anomaly, say so plainly in summary rather than inventing a cause, set risk near "
+    "the given anomaly_score (or 0 if none), and lower confidence accordingly. "
+    "Respond with strict minified JSON only, no markdown fences, no commentary, "
+    "matching exactly these keys: summary (string), root_cause (string), risk "
+    "(number 0-1), affected_component (string), recommended_action (string), "
+    "confidence (number 0-1). Example of a correct response when Evidence does not "
+    "address the question: "
+    '{"summary":"No runbook evidence addresses this question.",'
+    '"root_cause":"Not covered by the available evidence.","risk":0.0,'
+    '"affected_component":"unspecified","recommended_action":"none","confidence":0.1}'
 )
 
 
-def _telemetry_line(snapshot: Optional[dict]) -> str:
+def _telemetry_line(snapshot: Optional[dict]) -> Optional[str]:
     if not snapshot:
-        return "no live telemetry available for this node"
+        return None
     return (
         f"cpu={snapshot['cpu']:.1f}% memory={snapshot['memory']:.1f}% "
         f"packet_loss={snapshot['packet_loss']:.1f}% latency_ms={snapshot['latency_ms']:.1f}ms "
@@ -73,20 +92,30 @@ def _anomaly_line(anomaly: Optional[dict]) -> str:
 # prompt size and pushed measured warm latency from ~20s to 60s+ on this
 # CPU-only deployment. The LLM only needs enough of each chunk to ground
 # its answer; the frontend still gets the untruncated excerpt via the
-# evidence list built separately in routers/copilot.py. Trimmed further
-# for Day 3 (280 -> 220) to make room for the incident line and history
-# block without growing the prompt past the Day 2 baseline -- see the
-# module docstring for the measured numbers this budget is sized against.
-EXCERPT_CHAR_BUDGET = 220
+# evidence list built separately in routers/copilot.py. Bumped slightly
+# for Day 4 (220 -> 260) now that omitting empty telemetry/incident lines
+# (see module docstring) frees up the room this needs -- see the module
+# docstring for the measured numbers this budget is sized against.
+EXCERPT_CHAR_BUDGET = 260
 
-# Day 3: caps on the two new prompt sections below, same reasoning as
-# EXCERPT_CHAR_BUDGET -- each is small enough that even the worst case
-# (an incident line plus 2 history turns) stays well under one retrieved
-# chunk's budget.
+# Day 3: cap on the history block below, same reasoning as
+# EXCERPT_CHAR_BUDGET -- small enough that even 2 history turns stay well
+# under one retrieved chunk's budget.
 HISTORY_TURN_CHAR_BUDGET = 90
 
-
 def _truncate(text: str, limit: int) -> str:
+    """
+    Word-boundary truncation. Deliberately simple -- rag/ingest.py now
+    splits a runbook's Recovery Procedure / policy-bullet sections into
+    one chunk per step or bullet (see its module docstring), so a
+    retrieved chunk here is normally already a single, short, complete
+    thought and rarely needs truncating at all. An earlier version of
+    this function tried to be clever about preferring whole-item
+    boundaries when a chunk still ran long, but that requires generous
+    slack to avoid cutting a chunk off exactly where the answer starts --
+    the real fix for "the answer is past the truncation point" turned out
+    to be chunking granularity at ingest time, not truncation logic here.
+    """
     if len(text) <= limit:
         return text
     return text[:limit].rsplit(" ", 1)[0] + "..."
@@ -102,9 +131,9 @@ def _evidence_block(chunks: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _incident_line(incident: Optional[dict]) -> str:
+def _incident_line(incident: Optional[dict]) -> Optional[str]:
     if not incident:
-        return "no active incident is open for this node"
+        return None
     duration = incident.get("duration_minutes")
     duration_text = f"{duration:.1f} min" if duration is not None else "unknown"
     current = incident.get("current_anomaly_score")
@@ -136,14 +165,24 @@ def build_prompt(
     incident: Optional[dict] = None,
     history: Optional[list[dict]] = None,
 ) -> str:
+    # Day 4: telemetry/incident lines are omitted entirely when there's
+    # nothing to report, rather than stating the absence as a sentence --
+    # see the module docstring for why a stated absence became bait the
+    # model would echo instead of using the evidence.
+    telemetry_text = _telemetry_line(telemetry_snapshot)
+    telemetry_part = f"Current telemetry snapshot: {telemetry_text}\n\n" if telemetry_text else ""
+
+    incident_text = _incident_line(incident)
+    incident_part = f"Active incident: {incident_text}\n\n" if incident_text else ""
+
     return (
         f"{SYSTEM_PREAMBLE}\n\n"
         f"{_history_block(history)}"
         f"Question: {question}\n\n"
         f"Node: {node_id or 'unspecified'}\n"
-        f"Current telemetry snapshot: {_telemetry_line(telemetry_snapshot)}\n\n"
+        f"{telemetry_part}"
         f"Anomaly scoring: {_anomaly_line(anomaly)}\n\n"
-        f"Active incident: {_incident_line(incident)}\n\n"
+        f"{incident_part}"
         f"Evidence:\n{_evidence_block(chunks)}\n\n"
         f"JSON:"
     )

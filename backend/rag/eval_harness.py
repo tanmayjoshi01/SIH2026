@@ -29,8 +29,11 @@ Each question can take 20-90s on this CPU-only deployment (prompt
 evaluation, not just generation, is the measured bottleneck -- see
 rag/prompt_builder.py's module docstring), so a full run over the golden
 set can take 15-30 minutes. Progress prints per-question; full structured
-results are written to rag/eval_results.json alongside the summary
-printed at the end.
+results -- including the literal retrieved chunks (chunks_used) and the
+literal LLM response (answer) for every question, not just pass/fail --
+are written to rag/eval_results.json alongside the summary printed at
+the end, specifically so a failing grounding case can be read and
+diagnosed without re-running it.
 """
 
 from __future__ import annotations
@@ -83,8 +86,24 @@ def grounding_score(answer_text: str, evidence_text: str) -> float:
     return len(overlap) / len(answer_words)
 
 
+_INSUFFICIENT_EVIDENCE_PHRASES = (
+    "no evidence", "not supported", "no active", "cannot determine", "can't determine",
+    "no fault", "insufficient", "no information", "not covered", "no runbook",
+    "does not support", "no active anomaly", "not currently", "unable to determine",
+)
+
+
+def _signals_insufficient_evidence(llm_result: dict) -> bool:
+    """Heuristic only -- used to flag the out-of-scope questions for a human to read, not as ground truth on its own."""
+    text = f"{llm_result.get('summary', '')} {llm_result.get('root_cause', '')}".lower()
+    if any(phrase in text for phrase in _INSUFFICIENT_EVIDENCE_PHRASES):
+        return True
+    return (llm_result.get("risk") or 0.0) < 0.15 and (llm_result.get("confidence") or 0.0) < 0.3
+
+
 def evaluate_question(item: dict) -> dict:
     question = item["question"]
+    out_of_scope = bool(item.get("out_of_scope"))
 
     try:
         chunks = retrieve(question, k=RETRIEVAL_K)
@@ -92,6 +111,7 @@ def evaluate_question(item: dict) -> dict:
         return {
             "id": item["id"],
             "question": question,
+            "out_of_scope": out_of_scope,
             "retrieval_hit": False,
             "retrieved_files": [],
             "mode": "error",
@@ -102,7 +122,11 @@ def evaluate_question(item: dict) -> dict:
         }
 
     retrieved_files = sorted({c["runbook_file"] for c in chunks})
-    retrieval_hit = item["expected_runbook"] in retrieved_files
+    # For a normal question, a "hit" means the expected runbook cleared the
+    # threshold. For an out-of-scope question there is no expected runbook --
+    # a "hit" instead means retrieval correctly found nothing (or the LLM
+    # correctly declined below), which is checked separately in main().
+    retrieval_hit = (item["expected_runbook"] in retrieved_files) if not out_of_scope else (not chunks)
 
     prompt = build_prompt(
         question=question,
@@ -116,15 +140,23 @@ def evaluate_question(item: dict) -> dict:
     llm_result = generate_json(prompt)
     elapsed = time.time() - t0
 
+    chunks_used = [
+        {"runbook_file": c["runbook_file"], "section_title": c["section_title"], "excerpt": c["excerpt"], "score": c["score"]}
+        for c in chunks[:PROMPT_CHUNK_LIMIT]
+    ]
+
     if llm_result is None:
         return {
             "id": item["id"],
             "question": question,
+            "out_of_scope": out_of_scope,
             "retrieval_hit": retrieval_hit,
             "retrieved_files": retrieved_files,
+            "chunks_used": chunks_used,
             "mode": "fallback",
             "grounded": True,
             "grounding_score": None,
+            "declined_correctly": True if out_of_scope else None,
             "elapsed_seconds": round(elapsed, 1),
         }
 
@@ -135,11 +167,15 @@ def evaluate_question(item: dict) -> dict:
     return {
         "id": item["id"],
         "question": question,
+        "out_of_scope": out_of_scope,
         "retrieval_hit": retrieval_hit,
         "retrieved_files": retrieved_files,
+        "chunks_used": chunks_used,
         "mode": "llm",
+        "answer": llm_result,
         "grounded": score >= GROUNDING_THRESHOLD,
         "grounding_score": round(score, 3),
+        "declined_correctly": _signals_insufficient_evidence(llm_result) if out_of_scope else None,
         "elapsed_seconds": round(elapsed, 1),
     }
 
@@ -158,18 +194,28 @@ def main() -> None:
             f"({result['elapsed_seconds']}s)"
         )
 
-    total = len(results)
-    hits = sum(1 for r in results if r["retrieval_hit"])
-    grounded = sum(1 for r in results if r["grounded"])
-    llm_count = sum(1 for r in results if r["mode"] == "llm")
-    fallback_count = sum(1 for r in results if r["mode"] == "fallback")
-    error_count = sum(1 for r in results if r["mode"] == "error")
+    in_scope = [r for r in results if not r.get("out_of_scope")]
+    out_of_scope = [r for r in results if r.get("out_of_scope")]
 
-    print("\n=== RAG Eval Summary ===")
+    total = len(in_scope)
+    hits = sum(1 for r in in_scope if r["retrieval_hit"])
+    grounded = sum(1 for r in in_scope if r["grounded"])
+    llm_count = sum(1 for r in in_scope if r["mode"] == "llm")
+    fallback_count = sum(1 for r in in_scope if r["mode"] == "fallback")
+    error_count = sum(1 for r in in_scope if r["mode"] == "error")
+
+    print("\n=== RAG Eval Summary (in-scope golden questions) ===")
     print(f"Questions: {total}")
     print(f"Retrieval hit rate: {hits}/{total} ({hits / total:.0%})")
     print(f"Grounding pass rate: {grounded}/{total} ({grounded / total:.0%})")
     print(f"Mode: {llm_count} llm / {fallback_count} fallback / {error_count} error")
+
+    if out_of_scope:
+        declined = sum(1 for r in out_of_scope if r.get("declined_correctly"))
+        print(f"\n=== Out-of-scope questions (not counted above) ===")
+        print(f"Correctly declined / signaled no evidence: {declined}/{len(out_of_scope)}")
+        for r in out_of_scope:
+            print(f"  {r['id']}: retrieved_files={r['retrieved_files']} declined_correctly={r.get('declined_correctly')}")
 
     RESULTS_PATH.write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"\nFull results written to {RESULTS_PATH}")

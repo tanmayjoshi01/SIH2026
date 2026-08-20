@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ShieldAlert, TrendingDown, TrendingUp } from 'lucide-react'
+import { CheckCircle2, Loader2, ShieldAlert, TrendingDown, TrendingUp } from 'lucide-react'
 import { acknowledgeIncident, getAnomalies, getIncidents } from '../../api/client'
 import AlertBadge from '../shared/AlertBadge'
 
@@ -26,6 +26,7 @@ export default function IncidentContextPanel({ nodeId }) {
   const [incident, setIncident] = useState(null)
   const [currentScore, setCurrentScore] = useState(null)
   const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [acking, setAcking] = useState(false)
   const [ackMessage, setAckMessage] = useState(null)
 
@@ -35,8 +36,9 @@ export default function IncidentContextPanel({ nodeId }) {
       return
     }
     let cancelled = false
+    setLoading(true)
 
-    const load = () => {
+    const load = (isFirstLoad) => {
       Promise.all([getIncidents({ node_id: nodeId }), getAnomalies()])
         .then(([incidentRows, anomalyRows]) => {
           if (cancelled) return
@@ -49,10 +51,13 @@ export default function IncidentContextPanel({ nodeId }) {
         .catch((err) => {
           if (!cancelled) setError(`${err.code} - ${err.message}`)
         })
+        .finally(() => {
+          if (!cancelled && isFirstLoad) setLoading(false)
+        })
     }
 
-    load()
-    const timer = setInterval(load, POLL_MS)
+    load(true)
+    const timer = setInterval(() => load(false), POLL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)
@@ -75,6 +80,15 @@ export default function IncidentContextPanel({ nodeId }) {
   }
 
   if (!nodeId) return null
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-500">
+        <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Checking for an active incident on{' '}
+        <span className="font-mono text-slate-300">{nodeId}</span>...
+      </div>
+    )
+  }
 
   if (error) {
     return (

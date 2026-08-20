@@ -111,7 +111,7 @@ export default function AICopilot() {
           </div>
         </div>
 
-        <RetrievedSourcesPanel evidence={latestAnswer?.evidence ?? []} />
+        <RetrievedSourcesPanel evidence={latestAnswer?.evidence ?? []} busy={busy} />
       </section>
     </div>
   )

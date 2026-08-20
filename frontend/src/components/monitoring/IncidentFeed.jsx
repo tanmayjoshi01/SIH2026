@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ServerCrash, Siren } from 'lucide-react'
+import { Loader2, ServerCrash, Siren } from 'lucide-react'
 import { getIncidents, INCIDENTS_WS_URL } from '../../api/client'
 import AlertBadge from '../shared/AlertBadge'
 
@@ -30,6 +30,7 @@ const formatClock = (iso) => {
 export default function IncidentFeed() {
   const [incidents, setIncidents] = useState([])
   const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
   const cancelled = useRef(false)
 
@@ -45,6 +46,9 @@ export default function IncidentFeed() {
         })
         .catch((err) => {
           if (!cancelled.current) setError(`${err.code} - ${err.message}`)
+        })
+        .finally(() => {
+          if (!cancelled.current) setLoading(false)
         })
     }
 
@@ -110,7 +114,11 @@ export default function IncidentFeed() {
       </div>
 
       <div className="mt-3 space-y-2">
-        {error ? (
+        {loading ? (
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Loading incidents...
+          </div>
+        ) : error ? (
           <div className="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300 ring-1 ring-red-500/40">
             <ServerCrash size={14} aria-hidden="true" /> {error}
           </div>

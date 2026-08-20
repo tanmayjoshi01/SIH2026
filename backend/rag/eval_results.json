@@ -2,208 +2,625 @@
   {
     "id": "bgp-1",
     "question": "Why is router-7's BGP session flapping?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "bgp_flap.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Root Cause",
+        "excerpt": "Repeated BGP session resets between two neighbors, most commonly caused by\nan unstable underlying link (intermittent physical/satellite link loss),\na keepalive timer mismatch, or a neighbor router silently dropping and\nre-establishing the TCP session. Each reset forces a full route\nwithdrawal and re-advertisement, which is what produces the correlated\npacket loss and latency spikes during the same window -- the network is\nbriefly re-converging around the flapping link.",
+        "score": 0.8425
+      },
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Recovery Procedure",
+        "excerpt": "1. Confirm the flap is still active (check for a recent\n   `%BGP-2-FLAP_CRIT` line and no `%BGP-5-ADJCHANGE ... flapping stopped`\n   since).\n2. Recommended action per the fault taxonomy: **restart_bgp_session** --\n   manually reset the BGP session to the flapping neighbor rather than\n   waiting for dampening to clear on its own, since the router is applying\n   route dampening that will otherwise suppress the route for an extended\n   penalty period.\n3. After the restart, watch for the `%BGP-5-ADJCHANGE ... Up` recovery\n   line and confirm `bgp_flap_count`, `packet_loss`, and `latency_ms` all\n   settle back to their baseline values within one or two ticks.\n4. This fault is marked critical in the taxonomy -- page the on-call\n   operator immediately rather than queuing it for normal-priority review,\n   and require human approval before the session restart is executed.\n5. If flapping resumes immediately after a restart, escalate: this\n   indicates a persistent physical-layer or neighbor-side problem that a\n   session restart alone will not fix (see\n   `general_troubleshooting.md` for the escalation procedure).",
+        "score": 0.8314
+      }
+    ],
     "mode": "fallback",
     "grounded": true,
     "grounding_score": null,
-    "elapsed_seconds": 56.1
+    "declined_correctly": null,
+    "elapsed_seconds": 50.0
   },
   {
     "id": "bgp-2",
     "question": "What is the root cause of repeated BGP adjacency transitions between two neighbors?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "bgp_flap.md"
     ],
-    "mode": "llm",
+    "chunks_used": [
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Root Cause",
+        "excerpt": "Repeated BGP session resets between two neighbors, most commonly caused by\nan unstable underlying link (intermittent physical/satellite link loss),\na keepalive timer mismatch, or a neighbor router silently dropping and\nre-establishing the TCP session. Each reset forces a full route\nwithdrawal and re-advertisement, which is what produces the correlated\npacket loss and latency spikes during the same window -- the network is\nbriefly re-converging around the flapping link.",
+        "score": 0.8026
+      },
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Symptoms",
+        "excerpt": "A node begins logging repeated BGP adjacency transitions to a neighbor over\na short window. The generator emits these lines as the flap count crosses\nits warning and critical bands:\n\n```\n%BGP-4-FLAP_WARN: router-7: BGP session to router-5 flapped 4 times in the last interval - monitoring\n%BGP-2-FLAP_CRIT: router-7: BGP session to router-5 flapping (9 flaps) - session unstable, dampening applied\n```\n\nBGP flap episodes rarely occur alone. The same fault profile ramps\n`packet_loss` and `latency_ms` on the affected uplink at the same time, so\nexpect these alongside the BGP lines:\n\n```\n%IF-4-PKTLOSS_WARN: router-7: packet loss at 2.6% on uplink to router-5\n%IF-1-PKTLOSS_CRIT: router-7: packet loss at 6.1% on uplink to router-5 - link degraded\n%QOS-4-LATENCY_WARN: router-7: round-trip latency at 24.3ms - above baseline\n%QOS-2-LATENCY_CRIT: router-7: round-trip latency at 41.0ms - SLA breach\n```\n\nOperators will see the affected node's status move from `healthy` to\n`degraded`, and `bgp_flap_count` climb well above its normal resting value\nof 0.",
+        "score": 0.7041
+      }
+    ],
+    "mode": "fallback",
     "grounded": true,
-    "grounding_score": 0.667,
-    "elapsed_seconds": 47.0
+    "grounding_score": null,
+    "declined_correctly": null,
+    "elapsed_seconds": 50.4
   },
   {
     "id": "bgp-3",
     "question": "What is the recommended action when a BGP flap is confirmed still active?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "bgp_flap.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Recovery Procedure",
+        "excerpt": "1. Confirm the flap is still active (check for a recent\n   `%BGP-2-FLAP_CRIT` line and no `%BGP-5-ADJCHANGE ... flapping stopped`\n   since).\n2. Recommended action per the fault taxonomy: **restart_bgp_session** --\n   manually reset the BGP session to the flapping neighbor rather than\n   waiting for dampening to clear on its own, since the router is applying\n   route dampening that will otherwise suppress the route for an extended\n   penalty period.\n3. After the restart, watch for the `%BGP-5-ADJCHANGE ... Up` recovery\n   line and confirm `bgp_flap_count`, `packet_loss`, and `latency_ms` all\n   settle back to their baseline values within one or two ticks.\n4. This fault is marked critical in the taxonomy -- page the on-call\n   operator immediately rather than queuing it for normal-priority review,\n   and require human approval before the session restart is executed.\n5. If flapping resumes immediately after a restart, escalate: this\n   indicates a persistent physical-layer or neighbor-side problem that a\n   session restart alone will not fix (see\n   `general_troubleshooting.md` for the escalation procedure).",
+        "score": 0.836
+      },
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Symptoms",
+        "excerpt": "A node begins logging repeated BGP adjacency transitions to a neighbor over\na short window. The generator emits these lines as the flap count crosses\nits warning and critical bands:\n\n```\n%BGP-4-FLAP_WARN: router-7: BGP session to router-5 flapped 4 times in the last interval - monitoring\n%BGP-2-FLAP_CRIT: router-7: BGP session to router-5 flapping (9 flaps) - session unstable, dampening applied\n```\n\nBGP flap episodes rarely occur alone. The same fault profile ramps\n`packet_loss` and `latency_ms` on the affected uplink at the same time, so\nexpect these alongside the BGP lines:\n\n```\n%IF-4-PKTLOSS_WARN: router-7: packet loss at 2.6% on uplink to router-5\n%IF-1-PKTLOSS_CRIT: router-7: packet loss at 6.1% on uplink to router-5 - link degraded\n%QOS-4-LATENCY_WARN: router-7: round-trip latency at 24.3ms - above baseline\n%QOS-2-LATENCY_CRIT: router-7: round-trip latency at 41.0ms - SLA breach\n```\n\nOperators will see the affected node's status move from `healthy` to\n`degraded`, and `bgp_flap_count` climb well above its normal resting value\nof 0.",
+        "score": 0.7701
+      }
+    ],
     "mode": "llm",
-    "grounded": false,
-    "grounding_score": 0.25,
-    "elapsed_seconds": 44.1
+    "answer": {
+      "summary": "Restart BGP session.",
+      "root_cause": "Evidence 1 states to restart_bgp_session when a BGP flap is confirmed still active.",
+      "risk": 0.9,
+      "affected_component": "router-7",
+      "recommended_action": "restart_bgp_session",
+      "confidence": 1.0
+    },
+    "grounded": true,
+    "grounding_score": 0.6,
+    "declined_correctly": null,
+    "elapsed_seconds": 43.5
   },
   {
     "id": "bgp-4",
     "question": "How do I know a BGP flap episode has recovered?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "bgp_flap.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Recovery Procedure",
+        "excerpt": "1. Confirm the flap is still active (check for a recent\n   `%BGP-2-FLAP_CRIT` line and no `%BGP-5-ADJCHANGE ... flapping stopped`\n   since).\n2. Recommended action per the fault taxonomy: **restart_bgp_session** --\n   manually reset the BGP session to the flapping neighbor rather than\n   waiting for dampening to clear on its own, since the router is applying\n   route dampening that will otherwise suppress the route for an extended\n   penalty period.\n3. After the restart, watch for the `%BGP-5-ADJCHANGE ... Up` recovery\n   line and confirm `bgp_flap_count`, `packet_loss`, and `latency_ms` all\n   settle back to their baseline values within one or two ticks.\n4. This fault is marked critical in the taxonomy -- page the on-call\n   operator immediately rather than queuing it for normal-priority review,\n   and require human approval before the session restart is executed.\n5. If flapping resumes immediately after a restart, escalate: this\n   indicates a persistent physical-layer or neighbor-side problem that a\n   session restart alone will not fix (see\n   `general_troubleshooting.md` for the escalation procedure).",
+        "score": 0.8526
+      },
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Diagnosis \u2014 item 4",
+        "excerpt": "- A `%BGP-5-ADJCHANGE: ... Up - flapping stopped` line marks recovery --\n  treat this as the episode closing, not a new event.",
+        "score": 0.8384
+      }
+    ],
     "mode": "llm",
-    "grounded": false,
-    "grounding_score": 0.25,
-    "elapsed_seconds": 41.1
+    "answer": {
+      "summary": "According to the recovery procedure, a BGP flap episode has recovered when a `%BGP-5-ADJCHANGE ... flapping stopped` line is observed.",
+      "root_cause": "Based on the provided evidence.",
+      "risk": 0.7,
+      "affected_component": "BGP session",
+      "recommended_action": "restart_bgp_session",
+      "confidence": 0.9
+    },
+    "grounded": true,
+    "grounding_score": 0.533,
+    "declined_correctly": null,
+    "elapsed_seconds": 43.2
   },
   {
     "id": "bgp-5",
     "question": "Why does packet loss increase during a BGP flap episode?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
-      "bgp_flap.md",
-      "packet_loss.md"
+      "bgp_flap.md"
+    ],
+    "chunks_used": [
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Root Cause",
+        "excerpt": "Repeated BGP session resets between two neighbors, most commonly caused by\nan unstable underlying link (intermittent physical/satellite link loss),\na keepalive timer mismatch, or a neighbor router silently dropping and\nre-establishing the TCP session. Each reset forces a full route\nwithdrawal and re-advertisement, which is what produces the correlated\npacket loss and latency spikes during the same window -- the network is\nbriefly re-converging around the flapping link.",
+        "score": 0.8646
+      },
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Symptoms",
+        "excerpt": "A node begins logging repeated BGP adjacency transitions to a neighbor over\na short window. The generator emits these lines as the flap count crosses\nits warning and critical bands:\n\n```\n%BGP-4-FLAP_WARN: router-7: BGP session to router-5 flapped 4 times in the last interval - monitoring\n%BGP-2-FLAP_CRIT: router-7: BGP session to router-5 flapping (9 flaps) - session unstable, dampening applied\n```\n\nBGP flap episodes rarely occur alone. The same fault profile ramps\n`packet_loss` and `latency_ms` on the affected uplink at the same time, so\nexpect these alongside the BGP lines:\n\n```\n%IF-4-PKTLOSS_WARN: router-7: packet loss at 2.6% on uplink to router-5\n%IF-1-PKTLOSS_CRIT: router-7: packet loss at 6.1% on uplink to router-5 - link degraded\n%QOS-4-LATENCY_WARN: router-7: round-trip latency at 24.3ms - above baseline\n%QOS-2-LATENCY_CRIT: router-7: round-trip latency at 41.0ms - SLA breach\n```\n\nOperators will see the affected node's status move from `healthy` to\n`degraded`, and `bgp_flap_count` climb well above its normal resting value\nof 0.",
+        "score": 0.8642
+      }
     ],
     "mode": "llm",
+    "answer": {
+      "summary": "Packet loss increases during a BGP flap episode due to repeated BGP session resets between neighbors.",
+      "root_cause": "Repeated BGP session resets between two neighbors, most commonly caused by an unstable underlying link.",
+      "risk": 0.82,
+      "affected_component": "BGP",
+      "recommended_action": "Investigate underlying link stability and neighbor router configuration.",
+      "confidence": 0.9
+    },
     "grounded": true,
-    "grounding_score": 0.667,
-    "elapsed_seconds": 43.2
+    "grounding_score": 0.882,
+    "declined_correctly": null,
+    "elapsed_seconds": 44.4
   },
   {
     "id": "cpu-1",
     "question": "Why is server-1's CPU utilization climbing steadily?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "high_cpu.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Root Cause",
+        "excerpt": "Sustained high CPU utilization is typically caused by a runaway or\nlooping process, an unexpected spike in control-plane work (e.g. route\nrecomputation, SNMP polling storms), or a workload that has outgrown the\nnode's provisioned capacity. Rising memory alongside CPU is consistent\nwith a process leaking memory under that same load rather than a\ntransient spike.",
+        "score": 0.7178
+      },
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Symptoms",
+        "excerpt": "A node's CPU utilization climbs steadily and the generator logs threshold\ncrossings as it enters the warning and critical bands:\n\n```\n%SYS-4-CPUHIGH: server-1: CPU utilization at 74.2% - above warning threshold\n%SYS-1-CPUCRIT: server-1: CPU utilization at 93.5% - process scheduling degraded\n```\n\nThe same fault profile also ramps memory utilization on the same node,\nso expect these alongside the CPU lines:\n\n```\n%SYS-4-MEMHIGH: server-1: memory utilization at 62.1% - above warning threshold\n%SYS-1-MEMCRIT: server-1: memory utilization at 69.4% - risk of OOM\n```\n\nRecovery is logged the same way once the node settles:\n\n```\n%SYS-5-CPUNORMAL: server-1: CPU utilization back to 29.1% - nominal\n%SYS-5-MEMNORMAL: server-1: memory utilization back to 38.0% - nominal\n```\n\nUnlike BGP flap or packet loss, a high-CPU node's `status` field may still\nread `degraded` without any packet loss, latency, or interface-error\nlines appearing -- this fault is compute-bound, not link-bound.",
+        "score": 0.7027
+      }
+    ],
     "mode": "fallback",
     "grounded": true,
     "grounding_score": null,
-    "elapsed_seconds": 50.4
+    "declined_correctly": null,
+    "elapsed_seconds": 50.1
   },
   {
     "id": "cpu-2",
     "question": "What should I do about sustained high CPU on a compute node?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "high_cpu.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Recovery Procedure",
+        "excerpt": "1. Confirm the node is still in the critical band (`cpu` >= 90% or\n   `memory` >= 68%) and not already recovering.\n2. Recommended action per the fault taxonomy: **restart_process_or_scale**\n   -- restart the offending process to clear a runaway loop or memory\n   leak; if the load is legitimate (not a leak), scale the workload to\n   another node instead of restarting in place.\n3. After the action, watch for `%SYS-5-CPUNORMAL` and `%SYS-5-MEMNORMAL`\n   recovery lines and confirm both metrics settle back to baseline\n   (~28% CPU / ~38% memory for a server-class node, per node-type\n   baselines).\n4. Because this fault is not marked critical, it does not require the\n   same immediate escalation as BGP flap or packet loss -- follow the\n   normal-priority human-approval flow before the restart/scale action\n   is executed.\n5. If CPU immediately climbs again after a restart, the load is likely\n   legitimate rather than a leak; escalate for capacity planning rather\n   than repeating the restart (see `general_troubleshooting.md`).",
+        "score": 0.7458
+      },
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Root Cause",
+        "excerpt": "Sustained high CPU utilization is typically caused by a runaway or\nlooping process, an unexpected spike in control-plane work (e.g. route\nrecomputation, SNMP polling storms), or a workload that has outgrown the\nnode's provisioned capacity. Rising memory alongside CPU is consistent\nwith a process leaking memory under that same load rather than a\ntransient spike.",
+        "score": 0.7433
+      }
+    ],
     "mode": "fallback",
     "grounded": true,
     "grounding_score": null,
+    "declined_correctly": null,
     "elapsed_seconds": 50.0
   },
   {
     "id": "cpu-3",
     "question": "Is high CPU utilization treated as a critical fault in the taxonomy?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "high_cpu.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Diagnosis \u2014 item 4",
+        "excerpt": "- This fault type is registered as **not critical** in the fault taxonomy\n  (unlike bgp_flap and packet_loss), with a minimum recommendation\n  confidence of 0.65 -- it can be queued for normal-priority review rather\n  than paged immediately, unless it is compounding with another active\n  fault on a node the network depends on for routing.",
+        "score": 0.764
+      },
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Diagnosis \u2014 item 1",
+        "excerpt": "- `cpu` crosses warning at 70% and critical at 90%.",
+        "score": 0.7515
+      }
+    ],
     "mode": "llm",
-    "grounded": false,
-    "grounding_score": 0.25,
-    "elapsed_seconds": 46.8
+    "answer": {
+      "summary": "High CPU utilization is not treated as a critical fault in the taxonomy.",
+      "root_cause": "Item 1 of Evidence states that `cpu` crosses warning at 70% and critical at 90% and item 4 of Evidence states that this fault type is registered as not critical in the fault taxonomy.",
+      "risk": 0.6,
+      "affected_component": "server-1",
+      "recommended_action": "queued for normal-priority review",
+      "confidence": 0.65
+    },
+    "grounded": true,
+    "grounding_score": 0.538,
+    "declined_correctly": null,
+    "elapsed_seconds": 46.1
   },
   {
     "id": "cpu-4",
     "question": "Why does memory utilization rise alongside CPU during this fault?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "high_cpu.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Root Cause",
+        "excerpt": "Sustained high CPU utilization is typically caused by a runaway or\nlooping process, an unexpected spike in control-plane work (e.g. route\nrecomputation, SNMP polling storms), or a workload that has outgrown the\nnode's provisioned capacity. Rising memory alongside CPU is consistent\nwith a process leaking memory under that same load rather than a\ntransient spike.",
+        "score": 0.7338
+      },
+      {
+        "runbook_file": "high_cpu.md",
+        "section_title": "Diagnosis \u2014 item 2",
+        "excerpt": "- `memory` crosses warning at 60% and critical at 68% -- the two metrics\n  are ramped together by the same fault profile, so a node showing only\n  one of the two crossing its threshold is more likely mid-ramp (still\n  rising) than showing a different fault.",
+        "score": 0.7146
+      }
+    ],
     "mode": "fallback",
     "grounded": true,
     "grounding_score": null,
+    "declined_correctly": null,
     "elapsed_seconds": 50.0
   },
   {
     "id": "loss-1",
     "question": "Why is there packet loss on the uplink to switch-4?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "packet_loss.md"
     ],
-    "mode": "fallback",
+    "chunks_used": [
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Symptoms",
+        "excerpt": "A node's uplink starts dropping packets and the generator logs threshold\ncrossings as loss climbs into the warning and critical bands:\n\n```\n%IF-4-PKTLOSS_WARN: router-7: packet loss at 6.8% on uplink to switch-4\n%IF-1-PKTLOSS_CRIT: router-7: packet loss at 17.2% on uplink to switch-4 - link degraded\n```\n\nThe same fault profile also ramps interface errors and round-trip latency\non the same node, so expect these alongside the packet-loss lines:\n\n```\n%IF-4-ERRWARN: router-7: interface error count at 34 - above warning threshold\n%IF-2-ERRCRIT: router-7: interface error count at 96 - CRC/input errors climbing rapidly\n%QOS-4-LATENCY_WARN: router-7: round-trip latency at 27.5ms - above baseline\n%QOS-2-LATENCY_CRIT: router-7: round-trip latency at 44.0ms - SLA breach\n```\n\nRecovery is logged the same way once the link clears:\n\n```\n%IF-5-LINKUP: router-7: packet loss recovered to 0.4% on uplink to switch-4\n%IF-5-ERRCLEAR: router-7: interface error count back to 0 - nominal\n%QOS-5-LATENCY_OK: router-7: round-trip latency back to 8.2ms - nominal\n```",
+        "score": 0.7915
+      },
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Root Cause",
+        "excerpt": "Physical or link-layer degradation on the uplink -- a failing transceiver,\na marginal cable/satellite link, or congestion overrunning buffers on the\ninterface. The climbing interface-error count is the key differentiator\nfrom a BGP-flap-induced packet loss: BGP flap loss comes from routing\nchurn with clean interface counters, while this fault shows the interface\nitself accumulating errors as loss climbs.",
+        "score": 0.7289
+      }
+    ],
+    "mode": "llm",
+    "answer": {
+      "summary": "Packet loss on the uplink to switch-4 due to physical or link-layer degradation.",
+      "root_cause": "Physical or link-layer degradation on the uplink \u2013 a failing transceiver, a marginal cable/satellite link, or congestion overrunning buffers on the interface.",
+      "risk": 0.88,
+      "affected_component": "uplink to switch-4",
+      "recommended_action": "Investigate physical layer issues on the uplink to switch-4, including transceiver and cabling.",
+      "confidence": 0.9
+    },
     "grounded": true,
-    "grounding_score": null,
-    "elapsed_seconds": 50.0
+    "grounding_score": 1.0,
+    "declined_correctly": null,
+    "elapsed_seconds": 49.9
   },
   {
     "id": "loss-2",
     "question": "How can I tell packet loss from a BGP flap apart from packet loss from a physical link failure?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "bgp_flap.md",
       "packet_loss.md"
     ],
-    "mode": "fallback",
+    "chunks_used": [
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Root Cause",
+        "excerpt": "Physical or link-layer degradation on the uplink -- a failing transceiver,\na marginal cable/satellite link, or congestion overrunning buffers on the\ninterface. The climbing interface-error count is the key differentiator\nfrom a BGP-flap-induced packet loss: BGP flap loss comes from routing\nchurn with clean interface counters, while this fault shows the interface\nitself accumulating errors as loss climbs.",
+        "score": 0.8501
+      },
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Diagnosis \u2014 item 1",
+        "excerpt": "- `packet_loss` crosses warning at 5.0% and critical at 15.0% -- a\n  materially higher critical threshold than the packet loss seen as a\n  side effect of a BGP flap (5.0%), so >15% loss with rapidly climbing\n  interface errors is this fault, not a flap.",
+        "score": 0.8107
+      }
+    ],
+    "mode": "llm",
+    "answer": {
+      "summary": "Cannot determine packet loss from BGP flap versus physical link failure based on available evidence.",
+      "root_cause": "The evidence indicates that a packet loss of >15% with rapidly climbing interface errors is indicative of a physical link failure, not a BGP flap.",
+      "risk": 0.75,
+      "affected_component": "interface",
+      "recommended_action": "none",
+      "confidence": 0.75
+    },
     "grounded": true,
-    "grounding_score": null,
-    "elapsed_seconds": 50.0
+    "grounding_score": 0.5,
+    "declined_correctly": null,
+    "elapsed_seconds": 49.7
   },
   {
     "id": "loss-3",
     "question": "What is the recommended action for a degraded uplink with climbing interface errors?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "packet_loss.md"
     ],
-    "mode": "fallback",
+    "chunks_used": [
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Recovery Procedure",
+        "excerpt": "1. Confirm the link is still degraded (`packet_loss` >= 15% or\n   `interface_errors` >= 90, with errors still climbing).\n2. Recommended action per the fault taxonomy: **reroute_traffic** -- shift\n   traffic off the degraded uplink onto a healthy alternate path while the\n   physical link issue is investigated out-of-band; do not wait for the\n   link to self-heal, since climbing CRC errors indicate a hardware or\n   cabling problem rather than a transient condition.\n3. After rerouting, watch for `%IF-5-LINKUP`, `%IF-5-ERRCLEAR`, and\n   `%QOS-5-LATENCY_OK` recovery lines on the original link before\n   considering it safe to route traffic back.\n4. This fault is marked critical -- page the on-call operator immediately\n   and require human approval before the reroute is executed.\n5. If loss and interface errors do not clear after rerouting away from the\n   link, the fault is likely hardware-level (transceiver/cable) and needs\n   physical inspection -- escalate per `general_troubleshooting.md` rather\n   than repeating the reroute.",
+        "score": 0.7906
+      },
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Diagnosis \u2014 item 2",
+        "excerpt": "- `interface_errors` crosses warning at 30 and critical at 90 -- climbing\n  CRC/input errors is the strongest corroborating signal that this is a\n  physical/link-layer problem rather than a routing problem.",
+        "score": 0.7521
+      }
+    ],
+    "mode": "llm",
+    "answer": {
+      "summary": "Reroute traffic off the degraded uplink onto a healthy alternate.",
+      "root_cause": "packet_loss >= 15% or interface_errors >= 90, with errors still climbing.",
+      "risk": 0.91,
+      "affected_component": "router-7",
+      "recommended_action": "reroute_traffic",
+      "confidence": 0.91
+    },
     "grounded": true,
-    "grounding_score": null,
-    "elapsed_seconds": 50.0
+    "grounding_score": 1.0,
+    "declined_correctly": null,
+    "elapsed_seconds": 48.0
   },
   {
     "id": "loss-4",
     "question": "What does a climbing interface error count indicate about the uplink?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "packet_loss.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Root Cause",
+        "excerpt": "Physical or link-layer degradation on the uplink -- a failing transceiver,\na marginal cable/satellite link, or congestion overrunning buffers on the\ninterface. The climbing interface-error count is the key differentiator\nfrom a BGP-flap-induced packet loss: BGP flap loss comes from routing\nchurn with clean interface counters, while this fault shows the interface\nitself accumulating errors as loss climbs.",
+        "score": 0.7774
+      },
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Diagnosis \u2014 item 2",
+        "excerpt": "- `interface_errors` crosses warning at 30 and critical at 90 -- climbing\n  CRC/input errors is the strongest corroborating signal that this is a\n  physical/link-layer problem rather than a routing problem.",
+        "score": 0.7715
+      }
+    ],
     "mode": "llm",
+    "answer": {
+      "summary": "The climbing interface error count indicates a physical or link-layer degradation on the uplink.",
+      "root_cause": "Physical or link-layer degradation on the uplink \u2013 a failing transceiver, a marginal cable/satellite link, or congestion overrunning buffers on the interface.",
+      "risk": 0.8,
+      "affected_component": "uplink",
+      "recommended_action": "Investigate the physical layer of the uplink for transceiver issues, cable problems, or congestion.",
+      "confidence": 0.9
+    },
     "grounded": true,
-    "grounding_score": 0.667,
-    "elapsed_seconds": 41.5
+    "grounding_score": 0.944,
+    "declined_correctly": null,
+    "elapsed_seconds": 46.6
   },
   {
     "id": "gen-1",
     "question": "What signals should I check together when an anomaly doesn't clearly match one fault type?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "general_troubleshooting.md"
     ],
+    "chunks_used": [
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 If a fault does not clear after its recommended action",
+        "excerpt": "- **If a fault does not clear after its recommended action**, do not\n  repeat the same action blindly -- re-check `contributing_signals` for a\n  second, different fault family before re-recommending, and if none is\n  found, escalate to a human operator for physical/out-of-band\n  investigation.",
+        "score": 0.7028
+      },
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Diagnosis",
+        "excerpt": "1. Check whether `contributing_signals` points clearly at one fault\n   family -- `bgp_flap_count` dominant means `bgp_flap.md`; `cpu`/`memory`\n   dominant means `high_cpu.md`; `packet_loss`/`interface_errors`/\n   `latency_ms` dominant with no BGP movement means `packet_loss.md`.\n2. If no runbook chunk retrieved for the question clears the relevance\n   threshold, or the node's `fault_type` reads `healthy` with a low\n   `anomaly_score`, the correct answer is that there is **no active\n   risk** -- do not invent a fault or cite a runbook section that was not\n   actually retrieved as evidence.\n3. If signals from more than one fault family are elevated at once,\n   treat this as compounding faults rather than picking one arbitrarily,\n   and prioritize whichever fault is marked critical in the fault\n   taxonomy (`bgp_flap`, `packet_loss`) over the non-critical one\n   (`high_cpu`).",
+        "score": 0.6937
+      }
+    ],
     "mode": "llm",
+    "answer": {
+      "summary": "Check contributing signals for a second, different fault family.",
+      "root_cause": "Evidence [1] recommends re-checking contributing signals before repeating the same action.",
+      "risk": 0.75,
+      "affected_component": "unspecified",
+      "recommended_action": "Check `contributing_signals` for a second, different fault family.",
+      "confidence": 0.9
+    },
     "grounded": true,
-    "grounding_score": 0.5,
-    "elapsed_seconds": 44.8
+    "grounding_score": 0.714,
+    "declined_correctly": null,
+    "elapsed_seconds": 48.0
   },
   {
     "id": "gen-2",
     "question": "What is the escalation policy for critical faults versus non-critical faults?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
-      "general_troubleshooting.md",
-      "high_cpu.md"
+      "general_troubleshooting.md"
     ],
-    "mode": "llm",
-    "grounded": false,
-    "grounding_score": 0.25,
-    "elapsed_seconds": 43.0
+    "chunks_used": [
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 Escalation",
+        "excerpt": "- **Escalation:** critical faults (`bgp_flap`, `packet_loss`) with\n  confidence above their minimum should be flagged for immediate human\n  approval rather than queued for normal-priority review. Non-critical\n  faults (`high_cpu`) can be queued for normal-priority review unless\n  compounding with a critical fault on the same node.",
+        "score": 0.8015
+      },
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 If a fault does not clear after its recommended action",
+        "excerpt": "- **If a fault does not clear after its recommended action**, do not\n  repeat the same action blindly -- re-check `contributing_signals` for a\n  second, different fault family before re-recommending, and if none is\n  found, escalate to a human operator for physical/out-of-band\n  investigation.",
+        "score": 0.7243
+      }
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "declined_correctly": null,
+    "elapsed_seconds": 50.0
   },
   {
     "id": "gen-3",
     "question": "Is human approval always required before a recommended action is executed?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
+      "bgp_flap.md",
       "general_troubleshooting.md"
     ],
-    "mode": "llm",
-    "grounded": false,
-    "grounding_score": 0.25,
-    "elapsed_seconds": 40.1
+    "chunks_used": [
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 Human approval is always required",
+        "excerpt": "- **Human approval is always required** before any recommended action\n  (`restart_bgp_session`, `restart_process_or_scale`, `reroute_traffic`)\n  is actually executed -- the copilot recommends, it does not act\n  autonomously.",
+        "score": 0.7568
+      },
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 If a fault does not clear after its recommended action",
+        "excerpt": "- **If a fault does not clear after its recommended action**, do not\n  repeat the same action blindly -- re-check `contributing_signals` for a\n  second, different fault family before re-recommending, and if none is\n  found, escalate to a human operator for physical/out-of-band\n  investigation.",
+        "score": 0.54
+      }
+    ],
+    "mode": "fallback",
+    "grounded": true,
+    "grounding_score": null,
+    "declined_correctly": null,
+    "elapsed_seconds": 50.0
   },
   {
     "id": "gen-4",
     "question": "What should happen if a recommended action doesn't clear the fault?",
+    "out_of_scope": false,
     "retrieval_hit": true,
     "retrieved_files": [
       "general_troubleshooting.md"
     ],
-    "mode": "llm",
+    "chunks_used": [
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 If a fault does not clear after its recommended action",
+        "excerpt": "- **If a fault does not clear after its recommended action**, do not\n  repeat the same action blindly -- re-check `contributing_signals` for a\n  second, different fault family before re-recommending, and if none is\n  found, escalate to a human operator for physical/out-of-band\n  investigation.",
+        "score": 0.7476
+      },
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Root Cause",
+        "excerpt": "This runbook has no single root cause -- it exists for triage before a\nmore specific fault is identified, and for the escalation policy that\napplies once a recommendation has been made regardless of fault type.",
+        "score": 0.6365
+      }
+    ],
+    "mode": "fallback",
     "grounded": true,
-    "grounding_score": 0.455,
-    "elapsed_seconds": 46.6
+    "grounding_score": null,
+    "declined_correctly": null,
+    "elapsed_seconds": 50.0
+  },
+  {
+    "id": "oos-1",
+    "question": "What is the current outdoor air temperature at the ground station?",
+    "out_of_scope": true,
+    "retrieval_hit": false,
+    "retrieved_files": [
+      "packet_loss.md"
+    ],
+    "chunks_used": [
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Symptoms",
+        "excerpt": "A node's uplink starts dropping packets and the generator logs threshold\ncrossings as loss climbs into the warning and critical bands:\n\n```\n%IF-4-PKTLOSS_WARN: router-7: packet loss at 6.8% on uplink to switch-4\n%IF-1-PKTLOSS_CRIT: router-7: packet loss at 17.2% on uplink to switch-4 - link degraded\n```\n\nThe same fault profile also ramps interface errors and round-trip latency\non the same node, so expect these alongside the packet-loss lines:\n\n```\n%IF-4-ERRWARN: router-7: interface error count at 34 - above warning threshold\n%IF-2-ERRCRIT: router-7: interface error count at 96 - CRC/input errors climbing rapidly\n%QOS-4-LATENCY_WARN: router-7: round-trip latency at 27.5ms - above baseline\n%QOS-2-LATENCY_CRIT: router-7: round-trip latency at 44.0ms - SLA breach\n```\n\nRecovery is logged the same way once the link clears:\n\n```\n%IF-5-LINKUP: router-7: packet loss recovered to 0.4% on uplink to switch-4\n%IF-5-ERRCLEAR: router-7: interface error count back to 0 - nominal\n%QOS-5-LATENCY_OK: router-7: round-trip latency back to 8.2ms - nominal\n```",
+        "score": 0.5129
+      },
+      {
+        "runbook_file": "packet_loss.md",
+        "section_title": "Root Cause",
+        "excerpt": "Physical or link-layer degradation on the uplink -- a failing transceiver,\na marginal cable/satellite link, or congestion overrunning buffers on the\ninterface. The climbing interface-error count is the key differentiator\nfrom a BGP-flap-induced packet loss: BGP flap loss comes from routing\nchurn with clean interface counters, while this fault shows the interface\nitself accumulating errors as loss climbs.",
+        "score": 0.5038
+      }
+    ],
+    "mode": "llm",
+    "answer": {
+      "summary": "No runbook evidence addresses this question.",
+      "root_cause": "Not covered by the available evidence.",
+      "risk": 0.0,
+      "affected_component": "unspecified",
+      "recommended_action": "none",
+      "confidence": 0.1
+    },
+    "grounded": false,
+    "grounding_score": 0.0,
+    "declined_correctly": true,
+    "elapsed_seconds": 49.4
+  },
+  {
+    "id": "oos-2",
+    "question": "How do I reset the administrator password on router-7?",
+    "out_of_scope": true,
+    "retrieval_hit": false,
+    "retrieved_files": [
+      "bgp_flap.md",
+      "general_troubleshooting.md",
+      "packet_loss.md"
+    ],
+    "chunks_used": [
+      {
+        "runbook_file": "bgp_flap.md",
+        "section_title": "Recovery Procedure",
+        "excerpt": "1. Confirm the flap is still active (check for a recent\n   `%BGP-2-FLAP_CRIT` line and no `%BGP-5-ADJCHANGE ... flapping stopped`\n   since).\n2. Recommended action per the fault taxonomy: **restart_bgp_session** --\n   manually reset the BGP session to the flapping neighbor rather than\n   waiting for dampening to clear on its own, since the router is applying\n   route dampening that will otherwise suppress the route for an extended\n   penalty period.\n3. After the restart, watch for the `%BGP-5-ADJCHANGE ... Up` recovery\n   line and confirm `bgp_flap_count`, `packet_loss`, and `latency_ms` all\n   settle back to their baseline values within one or two ticks.\n4. This fault is marked critical in the taxonomy -- page the on-call\n   operator immediately rather than queuing it for normal-priority review,\n   and require human approval before the session restart is executed.\n5. If flapping resumes immediately after a restart, escalate: this\n   indicates a persistent physical-layer or neighbor-side problem that a\n   session restart alone will not fix (see\n   `general_troubleshooting.md` for the escalation procedure).",
+        "score": 0.5573
+      },
+      {
+        "runbook_file": "general_troubleshooting.md",
+        "section_title": "Recovery Procedure \u2014 Human approval is always required",
+        "excerpt": "- **Human approval is always required** before any recommended action\n  (`restart_bgp_session`, `restart_process_or_scale`, `reroute_traffic`)\n  is actually executed -- the copilot recommends, it does not act\n  autonomously.",
+        "score": 0.5409
+      }
+    ],
+    "mode": "llm",
+    "answer": {
+      "summary": "No runbook evidence addresses this question.",
+      "root_cause": "Not covered by the available evidence.",
+      "risk": 0.0,
+      "affected_component": "router-7",
+      "recommended_action": "none",
+      "confidence": 0.1
+    },
+    "grounded": false,
+    "grounding_score": 0.0,
+    "declined_correctly": true,
+    "elapsed_seconds": 43.4
   }
 ]
