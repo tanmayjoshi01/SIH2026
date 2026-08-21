@@ -21,12 +21,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import queue
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.websockets import WebSocketState
 
 from db.database import SessionLocal
 from db.models import Incident
@@ -36,6 +38,11 @@ logger = logging.getLogger("incidents_router")
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 ws_router = APIRouter()
+
+# How often the /ws/incidents loop wakes from its blocking queue.get() to
+# check the connection is still alive. See ws_incidents()'s docstring for
+# why this is needed at all.
+WS_LIVENESS_CHECK_SECONDS = 10.0
 
 
 class IncidentOut(BaseModel):
@@ -121,12 +128,28 @@ async def ws_incidents(websocket: WebSocket) -> None:
     Pushes {"event": "OPEN"|"UPDATE"|"RESOLVE", "incident": {...}} as they
     happen. Best-effort: if this connection can't keep up or drops, the
     REST endpoint above remains the source of truth (polling still works).
+
+    We never call websocket.receive(), so nothing here observes a client
+    that vanishes without a clean close handshake (a killed tab, a dropped
+    Wi-Fi connection, etc.) -- a plain `await asyncio.to_thread(queue.get)`
+    would then block forever, permanently pinning both this connection's
+    subscriber queue in incident_manager and a thread-pool worker thread
+    for the rest of the process's life. Found under Day 4 stress testing
+    (repeated connect/kill/reconnect cycles). Fixed by polling get() with
+    a timeout and checking websocket.client_state each time it's empty,
+    so a dead peer is reclaimed within WS_LIVENESS_CHECK_SECONDS instead
+    of leaking indefinitely.
     """
     await websocket.accept()
     subscriber_queue = incident_manager.subscribe()
     try:
         while True:
-            event = await asyncio.to_thread(subscriber_queue.get)
+            try:
+                event = await asyncio.to_thread(subscriber_queue.get, True, WS_LIVENESS_CHECK_SECONDS)
+            except queue.Empty:
+                if websocket.client_state != WebSocketState.CONNECTED:
+                    break
+                continue
             await websocket.send_json(event)
     except WebSocketDisconnect:
         pass

@@ -89,12 +89,16 @@ def subscribe() -> "queue.Queue":
     q: "queue.Queue" = queue.Queue(maxsize=200)
     with _subscribers_lock:
         _subscribers.add(q)
+        count = len(_subscribers)
+    logger.info("ws_incidents subscriber connected (total=%d)", count)
     return q
 
 
 def unsubscribe(q: "queue.Queue") -> None:
     with _subscribers_lock:
         _subscribers.discard(q)
+        count = len(_subscribers)
+    logger.info("ws_incidents subscriber disconnected (total=%d)", count)
 
 
 def broadcast(event: dict) -> None:
