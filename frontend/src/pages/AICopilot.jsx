@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Bot, Send } from 'lucide-react'
 import { approveRecommendation, askCopilot, rejectRecommendation } from '../api/client'
 import ChatWindow from '../components/copilot/ChatWindow'
 import RetrievedSourcesPanel from '../components/copilot/RetrievedSourcesPanel'
 import IncidentContextPanel from '../components/copilot/IncidentContextPanel'
+import { useCopilotSession } from '../context/CopilotSessionContext'
 
 const SUGGESTIONS = [
   'Why is router-7 at risk?',
@@ -12,14 +13,13 @@ const SUGGESTIONS = [
 ]
 
 export default function AICopilot() {
-  const [messages, setMessages] = useState([])
+  // Lifted into CopilotSessionContext (mounted above the router in
+  // App.jsx) so the conversation and session_id survive navigating away
+  // from and back to this page -- only local to this component is the
+  // in-progress text of the input box, which resetting on navigation is
+  // fine (and arguably expected).
+  const { messages, setMessages, busy, setBusy, decision, setDecision, sessionId } = useCopilotSession()
   const [question, setQuestion] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [decision, setDecision] = useState(null)
-  // One id per page load -- backend/routers/copilot.py keys its bounded,
-  // in-memory conversation history (last 4 turns) off this, so follow-up
-  // questions like "what should I do?" resolve against the same node.
-  const sessionId = useRef(`copilot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
 
   const ask = async (text) => {
     const trimmed = text.trim()
@@ -28,7 +28,7 @@ export default function AICopilot() {
     setDecision(null)
     setMessages((prev) => [...prev, { role: 'user', text: trimmed, id: `u-${Date.now()}` }])
     try {
-      const answer = await askCopilot(trimmed, sessionId.current)
+      const answer = await askCopilot(trimmed, sessionId)
       setMessages((prev) => [...prev, { role: 'assistant', answer, id: `a-${Date.now()}` }])
     } catch (err) {
       setMessages((prev) => [...prev, { role: 'assistant', error: `${err.code} - ${err.message}`, id: `e-${Date.now()}` }])

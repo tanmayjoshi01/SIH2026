@@ -4,24 +4,29 @@ import TopHeaderBar from './components/shared/TopHeaderBar'
 import LiveMonitoring from './pages/LiveMonitoring'
 import AICopilot from './pages/AICopilot'
 import AuditTrail from './pages/AuditTrail'
+import { CopilotSessionProvider } from './context/CopilotSessionContext'
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="flex min-h-screen bg-slate-950 text-slate-200">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopHeaderBar />
-          <main className="flex-1 overflow-y-auto p-5">
-            <Routes>
-              <Route path="/" element={<LiveMonitoring />} />
-              <Route path="/copilot" element={<AICopilot />} />
-              <Route path="/audit" element={<AuditTrail />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+      {/* Above <Routes> so it never unmounts on navigation -- see
+          CopilotSessionContext.jsx for why that matters. */}
+      <CopilotSessionProvider>
+        <div className="flex min-h-screen bg-slate-950 text-slate-200">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TopHeaderBar />
+            <main className="flex-1 overflow-y-auto p-5">
+              <Routes>
+                <Route path="/" element={<LiveMonitoring />} />
+                <Route path="/copilot" element={<AICopilot />} />
+                <Route path="/audit" element={<AuditTrail />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+          </div>
         </div>
-      </div>
+      </CopilotSessionProvider>
     </BrowserRouter>
   )
 }
