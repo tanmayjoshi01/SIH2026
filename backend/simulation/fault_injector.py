@@ -65,10 +65,12 @@ class FaultInjector:
         list of node_ids that were reset.
 
         Day 3: this module stays DB-agnostic on purpose (pure NetworkX
-        graph mutation, same as inject()/tick()). The returned node_id
-        list is what simulation/telemetry_generator.py's TelemetryGenerator.
-        reset() feeds to IncidentManager.resolve_nodes() to safely close
-        any open incident on these nodes -- no incident/DB logic lives here.
+        graph mutation, same as inject()/tick()). TelemetryGenerator.reset()
+        (simulation/telemetry_generator.py) calls this and then
+        IncidentManager.resolve_all() to safely close every open incident
+        -- not scoped to this method's returned node_id list, since a
+        fault episode can self-complete before its incident decays below
+        threshold. No incident/DB logic lives here.
         """
         affected = list(self.active_episodes.keys())
         for node_id in affected:
