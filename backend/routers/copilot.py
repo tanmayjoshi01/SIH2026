@@ -78,7 +78,27 @@ class ChatRequest(BaseModel):
 
 
 def _pick_node(session, question: str, session_id: Optional[str] = None) -> Optional[str]:
-    """The node named in the question; else the node from this session's last turn (so "what should I do?" resolves to the incident just discussed, not whatever node is worst system-wide); else whichever node currently has the highest open anomaly score."""
+    """
+    The node named in the question; else the node from this session's last
+    turn (so "what should I do?" resolves to the incident just discussed,
+    not whatever node is worst system-wide); else the node with the
+    currently most-at-risk open/acknowledged incident; else, if nothing is
+    open at all, whichever node's scoring tick was written most recently.
+
+    Day 5 fix: the third branch used to be `WHERE Anomaly.status == "open"
+    ORDER BY anomaly_score DESC` -- but the anomalies table is append-only
+    (one row per node per scoring tick, never pruned), and
+    Anomaly.status is a raw per-tick flag (services/anomaly_scoring_
+    service.py sets it from whatever fault is injected *at that instant*),
+    not Developer 1's stabilized, 3-consecutive-tick-gated incident state.
+    A node whose fault resolved an hour ago still has old rows sitting in
+    the table with status="open" from when it was active; if that old
+    episode's peak score happened to beat whatever's actually active now,
+    that query would resurrect it as "the" answer to a no-node-named
+    question -- exactly the staleness this fix closes. Querying the
+    `incidents` table instead means only Developer 1's real, current
+    open/acknowledged incidents are ever candidates.
+    """
     lowered = question.lower()
     for node_id in _NODE_IDS:
         if node_id in lowered:
@@ -89,14 +109,14 @@ def _pick_node(session, question: str, session_id: Optional[str] = None) -> Opti
         if last_node_id:
             return last_node_id
 
-    row = session.execute(
-        select(Anomaly.node_id)
-        .where(Anomaly.status == "open")
-        .order_by(Anomaly.anomaly_score.desc().nullslast(), Anomaly.detected_at.desc())
+    incident_row = session.execute(
+        select(Incident.node_id)
+        .where(Incident.status.in_(ACTIVE_INCIDENT_STATUSES))
+        .order_by(Incident.peak_anomaly_score.desc().nullslast(), Incident.id.desc())
         .limit(1)
     ).first()
-    if row:
-        return row[0]
+    if incident_row:
+        return incident_row[0]
 
     row = session.execute(select(Anomaly.node_id).order_by(Anomaly.detected_at.desc()).limit(1)).first()
     return row[0] if row else None
